@@ -1,11 +1,10 @@
-"use strict"
+'use strict'
 
 const util = require('util');
 var http = require('http');
 const mqtt = require('mqtt');
 const path = require('path');
 var walk = require('walk');
-var ohItem = require('./ohItem').ohItem;
 var ohItemFactory = require('./ohItem').ohItemFactory;
 var ohItems = require('./ohItem').ohItems;
 var config = require('./config.json');
@@ -15,8 +14,6 @@ winston.remove(winston.transports.Console);
 winston.add(winston.transports.Console, { timestamp: true, colorize: true });
 winston.level = 'debug';
 
-var hostUrl = 'localhost';
-var hostPort = '8080';
 var hostPath = '/rest/items'
 var jsonDirective = (config.openhab.version) == 1? '?type=json' : '';
 var rulesDir = path.dirname(process.argv[1]) + path.sep + 'rules';
@@ -27,7 +24,7 @@ function getItems(url, callback)
 {
 	let ohUrl = 'http://' + url + hostPath + jsonDirective;
 	winston.info('OpenHab web server = ' + ohUrl);
-	var pRequest = http.get(ohUrl, function(response)
+	http.get(ohUrl, function(response)
 	{
 		let rawData = '';
 		
@@ -200,5 +197,3 @@ process.on('SIGINT', () =>
 	mqttClient.end();
 	process.exit();
 });
-
-
