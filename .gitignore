@@ -1,6 +1,7 @@
 # User
 config.json
 .gitignore~
+testrules
 
 # Logs
 logs

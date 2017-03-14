@@ -9,14 +9,18 @@ var ohItemFactory = require('./ohItem').ohItemFactory;
 var ohItems = require('./ohItem').ohItems;
 var config = require('./config.json');
 var winston = require('winston');
+var moment = require('moment');
 
 winston.remove(winston.transports.Console);
-winston.add(winston.transports.Console, { timestamp: true, colorize: true });
+winston.add(winston.transports.Console, { 'timestamp': true, 'colorize': true, 'timestamp' : function()
+	{
+		return moment().format();
+	} 
+});
 winston.level = 'debug';
 
 var hostPath = '/rest/items'
 var jsonDirective = (config.openhab.version) == 1? '?type=json' : '';
-var rulesDir = path.dirname(process.argv[1]) + path.sep + 'rules';
 const topicCommand = 'openhab/external/';
 const topicState = 'openhab/slave/slaveGarage/';
 
@@ -75,17 +79,22 @@ function getItems(url, callback)
 	});
 }
 
-function findRules(rulesDir, done)
+function findRules(done)
 {
+	var rulesDir = path.isAbsolute(config.rulesFolder)?
+		config.rulesFolder :
+		path.dirname(process.argv[1]) + path.sep + config.rulesFolder;
+
+	winston.info('Rules directory = ' + rulesDir);
+
     var walker  = walk.walk(rulesDir, { followLinks: false });
 	var modules = [];
-	var prefix = path.isAbsolute(rulesDir)? '' : './';
 
     walker.on('file', function(root, stat, next) 
 	{
 		if (stat.type === 'file')
 		{
-			var current = prefix + path.join(root, stat.name).replace(/\\/g, '/');		// Windows path delimiters do not work for require
+			var current = path.join(root, stat.name).replace(/\\/g, '/');		// Windows path delimiters do not work for require
 			var extname = path.extname(current);
 			winston.debug(current);
 
@@ -123,9 +132,7 @@ getItems(config.openhab.webserver, function(err)
 		process.exit(4);
 	}
 
-	winston.info('Rules directory = ' + rulesDir);
-
-	findRules(rulesDir, function(modules)
+	findRules(function(modules)
 	{
 		for (var m of modules)
 		{
