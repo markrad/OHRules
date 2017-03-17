@@ -83,9 +83,11 @@ function findRules(done)
 {
 	var rulesFolder = config.rulesFolder || 'rules';
 	
-	var rulesDir = path.isAbsolute(config.rulesFolder)?
-		config.rulesFolder :
-		path.dirname(process.argv[1]) + path.sep + config.rulesFolder;
+	winston.debug('Rules folder = ' + rulesFolder);
+	
+	var rulesDir = path.isAbsolute(rulesFolder)?
+		rulesFolder :
+		path.dirname(process.argv[1]) + path.sep + rulesFolder;
 
 	winston.info('Rules directory = ' + rulesDir);
 
