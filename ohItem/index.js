@@ -101,7 +101,7 @@ function ohItem(jsonObj)
     this.commandSend = function(command)
     {
         this.emit('commandSend', name, this.coerceCommand(command));
-        waitForSettle = 1;
+        waitForSettle += 1;
 
         // In case for some reason we don't see the state update timeout the settle delay
         setTimeout(() => { if (waitForSettle && 0 == --waitForSettle) this.emit('settled'); }, config.misc.settleTimeout || 10000);
