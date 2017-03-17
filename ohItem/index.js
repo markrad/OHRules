@@ -294,10 +294,14 @@ function ohItemGroup(jsonObj)
 		{
             try
             {
+                winston.debug('Populating ', itemName);
+
                 childItem = ohItemFactory.ohItems[itemName];
 
                 if (childItem != undefined)
                 {
+                    winston.debug('Found child');
+                    
                     that.children[itemName] = childItem;
                     childItem.parents[that.name] = that;
                     childItem.on('state', (name, oldState, state) => { that.emit('state', name, oldState, state); });
