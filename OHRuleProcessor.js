@@ -81,6 +81,8 @@ function getItems(url, callback)
 
 function findRules(done)
 {
+	var rulesFolder = config.rulesFolder || 'rules';
+	
 	var rulesDir = path.isAbsolute(config.rulesFolder)?
 		config.rulesFolder :
 		path.dirname(process.argv[1]) + path.sep + config.rulesFolder;
