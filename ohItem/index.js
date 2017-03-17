@@ -132,7 +132,7 @@ function ohItem(jsonObj)
     {
         var delay = sendAt.diff(moment(), 'milliseconds');
         
-        winston.debug('commandSendAt: ' + actionAt.toString());
+        winston.debug('commandSendAt: ' + (actionAt.toString() || 'null'));
         winston.debug('in milliseconds: ' + delay);
         
         this.once('settled', function()
@@ -306,7 +306,7 @@ function ohItemGroup(jsonObj)
                     that.children[itemName] = childItem;
                     
                     winston.silly('Add to child\'s parents');
-                    
+
                     childItem.parents[that.name] = that;
                     childItem.on('state', (name, oldState, state) => { that.emit('state', name, oldState, state); });
                     clearInterval(interval);
