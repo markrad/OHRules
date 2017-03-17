@@ -147,7 +147,8 @@ getItems(config.openhab.webserver, function(err)
 			}
 			catch (exp)
 			{
-				winston.error('Rule ' + m + ' threw exception ' + exp);
+				winston.error('Rule ' + name + ' threw exception ' + exp);
+				winston.error(exp.stack);
 			}
 		}
 	});
