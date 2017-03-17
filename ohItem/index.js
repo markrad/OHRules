@@ -104,6 +104,7 @@ function ohItem(jsonObj)
     this.commandSend = function(command)
     {
         this.emit('commandSend', name, this.coerceCommand(command));
+        waitForSettle = 1;
         return this;
     }
 
@@ -116,7 +117,6 @@ function ohItem(jsonObj)
         if (this.state != this.requiredState(command) || (this.timerRunning && sendAt.isAfter(actionAt)))
         {
             this.commandSend(command);
-            waitForSettle = 1;
             this.commandSendAt(sendAt, nextCommand);
         }
 
@@ -130,9 +130,7 @@ function ohItem(jsonObj)
 
     this.commandSendAt = function(sendAt, command)
     {
-        actionAt = sendAt;
-        
-        var delay = actionAt.diff(moment(), 'milliseconds');
+        var delay = sendAt.diff(moment(), 'milliseconds');
         
         winston.debug('commandSendAt: ' + actionAt.toString());
         winston.debug('in milliseconds: ' + delay);
@@ -140,12 +138,20 @@ function ohItem(jsonObj)
         this.once('settled', function()
         {
             winston.debug(that.name + ' settled');
+            
+            actionAt = sendAt;
+
             timeout = setTimeout(() =>
             {
                 actionAt = null;
                 that.commandSend(command);
             }, delay);
         });
+
+        if (waitForSettle == 0)
+        {
+            this.emit('settled');
+        }
 
         return this;
     }
