@@ -86,12 +86,9 @@ function ohItem(jsonObj)
             actionAt = null;
             clearTimeout(timeout);
 
-            if (waitForSettle)
+            if (waitForSettle && 0 == --waitForSettle)
             {
-                if (0 == --waitForSettle)
-                {
-                    this.emit('settled');
-                }
+                this.emit('settled');
             }
         }
     }
@@ -105,6 +102,9 @@ function ohItem(jsonObj)
     {
         this.emit('commandSend', name, this.coerceCommand(command));
         waitForSettle = 1;
+
+        // In case for some reason we don't see the state update timeout the settle delay
+        setTimeout(() => { if (waitForSettle && 0 == --waitForSettle) this.emit('settled'); }, config.misc.settleTimeout || 10000);
         return this;
     }
 
