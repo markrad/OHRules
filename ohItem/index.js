@@ -271,7 +271,8 @@ ohItemFactory.getItems = function(parsedData, callback)
               
                 if (--groupCount == 0)
                 {
-                    callback(null);
+                    // Put this in to a different context
+                    process.nextTick(() => callback(null));
                 }
             });
 
@@ -301,8 +302,10 @@ function ohItemGroup(jsonObj)
                 if (childItem != undefined)
                 {
                     winston.debug('Found child');
-                    
+
                     that.children[itemName] = childItem;
+                    
+                    winston.debug('Add to child\'s parents');
                     childItem.parents[that.name] = that;
                     childItem.on('state', (name, oldState, state) => { that.emit('state', name, oldState, state); });
                     clearInterval(interval);
