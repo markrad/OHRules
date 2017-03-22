@@ -132,7 +132,7 @@ function ohItem(jsonObj)
     {
         var delay = sendAt.diff(moment(), 'milliseconds');
         
-        winston.debug('commandSendAt: ' + (actionAt? actionAt.toString() : 'null'));
+        winston.debug('commandSendAt: ' + this.name + ';' + (sendAt? sendAt.toString() : 'null'));
         winston.debug('in milliseconds: ' + delay);
         
         this.once('settled', function()
