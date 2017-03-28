@@ -7,6 +7,7 @@ var EventEmitter = require('events').EventEmitter;
 var moment = require('moment');
 var winston = require('winston');
 var schedule = require('node-schedule');
+var util = require('util');
 
 function astro()
 {
@@ -57,6 +58,38 @@ function astro()
             sunCalc.getTimes(moment().add(1, 'days'), config.location.latitude, config.location.longitude));
     }
 
+    var updateMoon = function()
+    {
+        that.emit("moonPhase", moonPhase());
+    }
+
+    var moonPhase = function()
+    {
+        var moon = sunCalc.getMoonIllumination(new Date());
+        winston.debug(util.inspect(moon));
+
+        var phase = 
+            moon.phase == 0.0?
+            "NEW_MOON":
+            moon.phase < 0.25?
+            "WAXING_CRESENT":
+            moon.phase == 0.25?
+            "FIRST_QUARTER":
+            moon.phase < 0.5?
+            "WAXING_GIBBOUS":
+            moon.phase == 0.5?
+            "FULL_MOON":
+            moon.phase < 0.75?
+            "WANING_GIBBOUS":
+            moon.phase == 0.75?
+            "LAST_QUARTER":
+            moon.phase < 1.0?
+            "WANING_CRESENT":
+            "FUCK_KNOWS";
+
+        return phase;
+    }
+
     this.isDark = function()
     {
         var temp = moment();
@@ -77,6 +110,10 @@ function astro()
     midnight();
 
     schedule.scheduleJob({hour: 0, minute: 0, second: 0 }, () => midnight());
+
+    updateMoon();
+    schedule.scheduleJob({ minute: 15 }, () => updateMoon());
+
 }
 
 util.inherits(astro, EventEmitter);

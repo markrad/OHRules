@@ -81,15 +81,15 @@ function ohItem(jsonObj)
             winston.silly(new Error().stack);
         }
 
-        if (waitForSettle && 0 == --waitForSettle)
-        {
-            this.emit('settled');
-        }
-
         if (that.timerRunning)
         {
             actionAt = null;
             clearTimeout(timeout);
+        }
+
+        if (waitForSettle && 0 == --waitForSettle)
+        {
+            this.emit('settled');
         }
     }
 
