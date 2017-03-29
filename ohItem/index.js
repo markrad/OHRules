@@ -74,7 +74,7 @@ function ohItem(jsonObj)
 
     this.cancelTimer = function()
     {
-        winston.silly('cancelTimer: timerRunning for ' + this.name + ' = ' + that.timerRunning);
+        winston.debug('cancelTimer: timerRunning for ' + that.name + ' = ' + that.timerRunning);
 
         if (that.timerRunning)
         {
@@ -83,6 +83,7 @@ function ohItem(jsonObj)
 
         if (that.timerRunning)
         {
+            winston.debug("cancelTimer: Clearing actionAt for " + that.name);
             actionAt = null;
             clearTimeout(timeout);
         }
@@ -139,10 +140,12 @@ function ohItem(jsonObj)
         {
             winston.debug(that.name + ' settled');
             
+            winston.debug('commandSendAt: Setting actionAt for ' + that.name);
             actionAt = sendAt;
 
             timeout = setTimeout(() =>
             {
+                winston.debug("commandSendAt: Clearing actionAt for " + that.name);
                 actionAt = null;
                 that.commandSend(command);
             }, delay);
