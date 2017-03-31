@@ -45,8 +45,8 @@ function ohItem(jsonObj)
 	this._restUrl = jsonObj.link;
 	this.parents = {};
 	this.children = {};
-    var actionAt = null;
-    var timeout = null;
+    this.actionAt = null;
+    this.timeout = null;
     this.waitForSettle = 0;
 
     this.on('newListner', () => winston.debug(name + ' has ' + that.listenerCount() + ' listeners'));
@@ -55,7 +55,7 @@ function ohItem(jsonObj)
 	this.__defineGetter__('type', () => { return this._type; });
 	this.__defineGetter__('state', () => { return state; });
 	//this.__defineGetter__('restUrl', () => { return restUrl; });
-    this.__defineGetter__('timerRunning', () => { return actionAt != null; });
+    this.__defineGetter__('timerRunning', () => { return this.actionAt != null; });
 	
 	this.__defineSetter__('state', (value) => 
 	{ 
@@ -94,10 +94,10 @@ function ohItem(jsonObj)
     this.commandSendWithTimeoutAt = function(command, sendAt, nextCommand)
     {
         winston.debug('commandSendWithTimeoutAt: ' + this.name + '; state = ' + this.state + '; command = ' + command);
-        winston.debug('actionAt = ' + ((actionAt == null)? 'null' : actionAt.toString()) + '; sendAt = ' + sendAt.toString());
-        winston.debug('should run = ' + (this.state != this.requiredState(command) || (this.timerRunning && sendAt.isAfter(actionAt))));
+        winston.debug('actionAt = ' + ((this.actionAt == null)? 'null' : this.actionAt.toString()) + '; sendAt = ' + sendAt.toString());
+        winston.debug('should run = ' + (this.state != this.requiredState(command) || (this.timerRunning && sendAt.isAfter(this.actionAt))));
 
-        if (this.state != this.requiredState(command) || (this.timerRunning && sendAt.isAfter(actionAt)))
+        if (this.state != this.requiredState(command) || (this.timerRunning && sendAt.isAfter(this.actionAt)))
         {
             this.commandSend(command);
             this.commandSendAt(sendAt, nextCommand);
@@ -123,12 +123,12 @@ function ohItem(jsonObj)
             winston.debug(that.name + ' settled');
             
             winston.debug('commandSendAt: Setting actionAt for ' + that.name);
-            actionAt = sendAt;
+            this.actionAt = sendAt;
 
-            timeout = setTimeout(() =>
+            this.timeout = setTimeout(() =>
             {
                 winston.debug("commandSendAt: Clearing actionAt for " + that.name);
-                actionAt = null;
+                this.actionAt = null;
                 that.commandSend(command);
             }, delay);
         });
@@ -418,8 +418,8 @@ function ohItemCommandTarget(jsonObj)
         if (that.timerRunning)
         {
             winston.debug("cancelTimer: Clearing actionAt for " + that.name);
-            actionAt = null;
-            clearTimeout(timeout);
+            this.actionAt = null;
+            clearTimeout(this.timeout);
         }
 
         if (this.waitForSettle && 0 == --this.waitForSettle)
