@@ -1,9 +1,9 @@
+"use strict";
+
 var ohItems = require('../ohItem').ohItems;
 var schedule = require('node-schedule');
 var astro = require('../modules/astro');
 var config = require('../config');
-
-"use strict";
 
 var winston = require('winston');
 
