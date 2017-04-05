@@ -72,14 +72,9 @@ function ohItem(jsonObj)
 
     this.requiredState = (command) => { return command; }
 
-    this.cancelTimer = function()
-    {
-    }
+    this.cancelTimer = () => {}
 
-    this.notInState(command)
-    {
-        return command != state;
-    }
+    this.notInState = (command) => { return command != state; }
 
     this.commandReceived = function(command)
     {
@@ -88,7 +83,7 @@ function ohItem(jsonObj)
 
     this.commandSend = function(command)
     {
-        if (notInState(command))
+        if (this.notInState(command))
         {
             this.emit('commandSend', name, this.coerceCommand(command));
             this.waitForSettle += 1;
