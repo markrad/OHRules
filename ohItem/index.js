@@ -76,6 +76,11 @@ function ohItem(jsonObj)
     {
     }
 
+    this.notInState(command)
+    {
+        return command != state;
+    }
+
     this.commandReceived = function(command)
     {
         this.emit('command', name, command);
@@ -83,26 +88,32 @@ function ohItem(jsonObj)
 
     this.commandSend = function(command)
     {
-        this.emit('commandSend', name, this.coerceCommand(command));
-        this.waitForSettle += 1;
-        winston.debug('commandSend: waitForSettle for ' + that.name + ' is now ' + this.waitForSettle);
-
-        // In case for some reason we don't see the state update timeout the settle delay
-        var settleTimeout = setTimeout(() => 
-        { 
-            if (this.waitForSettle && 0 == --this.waitForSettle)
-            {
-                winston.debug('commandSend: Timed out before settled for ' + that.name);
-                this.emit('settled');
-            } 
-        }, config.misc.settleTimeout || 10000);
-
-        // Clear timeout if we settle
-        this.once('settled', function()
+        if (notInState(command))
         {
-            clearTimeout(settleTimeout);
-        });
-        
+            this.emit('commandSend', name, this.coerceCommand(command));
+            this.waitForSettle += 1;
+            winston.debug('commandSend: waitForSettle for ' + that.name + ' is now ' + this.waitForSettle);
+
+            // In case for some reason we don't see the state update timeout the settle delay
+            var settleTimeout = setTimeout(() => 
+            { 
+                if (this.waitForSettle && 0 == --this.waitForSettle)
+                {
+                    winston.debug('commandSend: Timed out before settled for ' + that.name);
+                    this.emit('settled');
+                } 
+            }, config.misc.settleTimeout || 10000);
+
+            // Clear timeout if we settle
+            this.once('settled', function()
+            {
+                clearTimeout(settleTimeout);
+            });
+        }
+        else
+        {
+            winston.debug('commandSend: Item is already in the required state - ' + that.name);
+        }
         return this;
     }
 
@@ -572,6 +583,23 @@ function ohItemDimmer(jsonObj)
     this.state = this.coerceState(jsonObj.state);
 
     that._type = ohItemType.DATETIME;
+
+    this.notInState = function(command)
+    {
+        let rc = true;
+
+        if (typeof command == 'number' && command == this.state)
+            rc = false;
+        else if (typeof command == 'boolean')
+            rc = 
+                command && this.state == 100?
+                false:
+                !command && this.state == 0?
+                false:
+                true;
+
+        return rc;
+    }
 
     this.coerceCommand = function(command)
     {
