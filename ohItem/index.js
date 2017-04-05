@@ -85,9 +85,24 @@ function ohItem(jsonObj)
     {
         this.emit('commandSend', name, this.coerceCommand(command));
         this.waitForSettle += 1;
+        winston.debug('commandSend: waitForSettle for ' + that.name + ' is now ' + this.waitForSettle);
 
         // In case for some reason we don't see the state update timeout the settle delay
-        setTimeout(() => { if (this.waitForSettle && 0 == --this.waitForSettle) this.emit('settled'); }, config.misc.settleTimeout || 10000);
+        var settleTimeout = setTimeout(() => 
+        { 
+            if (this.waitForSettle && 0 == --this.waitForSettle)
+            {
+                winston.debug('commandSend: Timed out before settled for ' + that.name);
+                this.emit('settled');
+            } 
+        }, config.misc.settleTimeout || 10000);
+
+        // Clear timeout if we settle
+        this.once('settled', function()
+        {
+            clearTimeout(settleTimeout);
+        });
+        
         return this;
     }
 
@@ -97,9 +112,13 @@ function ohItem(jsonObj)
         winston.debug('actionAt = ' + ((this.actionAt == null)? 'null' : this.actionAt.toString()) + '; sendAt = ' + sendAt.toString());
         winston.debug('should run = ' + (this.state != this.requiredState(command) || (this.timerRunning && sendAt.isAfter(this.actionAt))));
 
-        if (this.state != this.requiredState(command) || (this.timerRunning && sendAt.isAfter(this.actionAt)))
+        if (this.state != this.requiredState(command))
         {
             this.commandSend(command);
+        }
+
+        if (!this.timerRunning || (this.timerRunning && sendAt.isAfter(this.actionAt)))
+        {
             this.commandSendAt(sendAt, nextCommand);
         }
 
@@ -127,7 +146,7 @@ function ohItem(jsonObj)
 
             this.timeout = setTimeout(() =>
             {
-                winston.debug("commandSendAt: Clearing actionAt for " + that.name);
+                winston.debug("commandSendAt: Completing actionAt for " + that.name);
                 this.actionAt = null;
                 that.commandSend(command);
             }, delay);
@@ -135,6 +154,7 @@ function ohItem(jsonObj)
 
         if (this.waitForSettle == 0)
         {
+            winston.debug('commandSendAt: Faking settled for ' + that.name);
             this.emit('settled');
         }
 
@@ -424,6 +444,7 @@ function ohItemCommandTarget(jsonObj)
 
         if (this.waitForSettle && 0 == --this.waitForSettle)
         {
+            winston.debug("cancelTimer: Emitting settled for " + that.name);
             this.emit('settled');
         }
     }
