@@ -118,6 +118,7 @@ rules.push(new garageMotionDetected());
 rules.push(new garageDoorStateChange());
 rules.push(new switchOffAt(ohItems.Outdoor_Lights, { hour: 2, minute: 0, second: 0}));
 rules.push(new switchOffAt(ohItems.Malibu_Lights, { hour: 2, minute: 0, second: 0}));
+rules.push(new outdoorLightsOffRule());
 
 for (var childKey in ohItems.G_Phones.children)
 {
