@@ -63,7 +63,11 @@ function ohItem(jsonObj)
 
         this.cancelTimer();
         state = that.coerceState(value); 
-		this.emit('state', that, oldState, state);
+
+        if (oldState != state)
+        {
+		    this.emit('state', that, oldState, state);
+        }
 	});
 
     this.coerceCommand = (command) => { return command.toString(); }
@@ -116,9 +120,9 @@ function ohItem(jsonObj)
     {
         winston.debug('commandSendWithTimeoutAt: ' + this.name + '; state = ' + this.state + '; command = ' + command);
         winston.debug('actionAt = ' + ((this.actionAt == null)? 'null' : this.actionAt.toString()) + '; sendAt = ' + sendAt.toString());
-        winston.debug('should run = ' + (this.state != this.requiredState(command) || (this.timerRunning && sendAt.isAfter(this.actionAt))));
+        winston.debug('should run = ' + (this.notInState(command) || (this.timerRunning && sendAt.isAfter(this.actionAt))));
 
-        if (this.state != this.requiredState(command))
+        if (this.notInState(command))
         {
             this.commandSend(command);
         }
@@ -148,6 +152,11 @@ function ohItem(jsonObj)
             winston.debug(that.name + ' settled');
             
             winston.debug('commandSendAt: Setting actionAt for ' + that.name);
+            if (this.timerRunning)
+            {
+                clearTimeout(this.timeout);
+            }
+
             this.actionAt = sendAt;
 
             this.timeout = setTimeout(() =>
@@ -160,7 +169,7 @@ function ohItem(jsonObj)
 
         if (this.waitForSettle == 0)
         {
-            winston.debug('commandSendAt: Faking settled for ' + that.name);
+            winston.debug('commandSendAt: Already settled ' + that.name);
             this.emit('settled');
         }
 
