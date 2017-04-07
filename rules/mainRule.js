@@ -31,7 +31,7 @@ var outdoorLightsOffRule = function()
         {
             if (!ohItems.isDark)
             {
-                ohItems.Outdoor_Lights.TurnOff();
+                ohItems.Outdoor_Lights.turnOff();
             }
         });
     }
