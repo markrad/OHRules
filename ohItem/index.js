@@ -519,7 +519,7 @@ function ohItemSwitch(jsonObj)
 
     this.turnOff = () => 
     {
-        that.commandSend('OFF');
+        that.commandSend(false);
         return this;
     }
     

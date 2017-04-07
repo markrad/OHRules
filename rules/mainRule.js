@@ -22,6 +22,21 @@ var cancelTimerAtOffRule = function(target)
     }
 }
 
+var outdoorLightsOffRule = function()
+{
+    this.name = "outdoorLightsOffRule";
+    this.init = function()
+    {
+        var job = schedule.scheduleJob( { minute: 00 }, function()
+        {
+            if (!ohItems.isDark)
+            {
+                ohItems.Outdoor_Lights.TurnOff();
+            }
+        });
+    }
+}
+
 var switchOffAt = function(target, whenAt)
 {
     this.name = "switchOffAt: " + target.name;
