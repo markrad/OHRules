@@ -27,7 +27,7 @@ var outdoorLightsOffRule = function()
     this.name = "outdoorLightsOffRule";
     this.init = function()
     {
-        var job = schedule.scheduleJob( { minute: 00 }, function()
+        var job = schedule.scheduleJob( { minute: 0 }, function()
         {
             if (!ohItems.isDark)
             {
