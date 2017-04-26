@@ -74,7 +74,7 @@ function ohItem(jsonObj)
 
     this.cancelTimer = function()
     {
-        winston.silly('cancelTimer: timerRunning for ' + this.name + ' = ' + that.timerRunning);
+        winston.debug(this.name + ';cancelTimer: timerRunning  = ' + that.timerRunning);
 
         if (that.timerRunning)
         {
@@ -83,11 +83,12 @@ function ohItem(jsonObj)
 
         if (waitForSettle && 0 == --waitForSettle)
         {
+			winston.debug(this.name + ';cancelTimer - Emitting settled');
             this.emit('settled');
         }
-
-        if (that.timerRunning)
+        else if (!waitForSettle && that.timerRunning)
         {
+			winston.debug(this.name + ';cancelTimer - Clearing actionAt');
             actionAt = null;
             clearTimeout(timeout);
         }
@@ -110,9 +111,9 @@ function ohItem(jsonObj)
 
     this.commandSendWithTimeoutAt = function(command, sendAt, nextCommand)
     {
-        winston.debug('commandSendWithTimeoutAt: ' + this.name + '; state = ' + this.state + '; command = ' + command);
-        winston.debug('actionAt = ' + ((actionAt == null)? 'null' : actionAt.toString()) + '; sendAt = ' + sendAt.toString());
-        winston.debug('should run = ' + (this.state != this.requiredState(command) || (this.timerRunning && sendAt.isAfter(actionAt))));
+        winston.debug(this.name + ';commandSendWithTimeoutAt: state = ' + this.state + '; command = ' + command);
+        winston.debug('   actionAt = ' + ((actionAt == null)? 'null' : actionAt.toString()) + '; sendAt = ' + sendAt.toString());
+        winston.debug('   should run = ' + (this.state != this.requiredState(command) || (this.timerRunning && sendAt.isAfter(actionAt))));
 
         if (this.state != this.requiredState(command) || (this.timerRunning && sendAt.isAfter(actionAt)))
         {
@@ -132,17 +133,23 @@ function ohItem(jsonObj)
     {
         var delay = sendAt.diff(moment(), 'milliseconds');
         
-        winston.debug('commandSendAt: ' + this.name + ';' + (sendAt? sendAt.toString() : 'null'));
-        winston.debug('in milliseconds: ' + delay);
+        winston.debug(this.name + ';commandSendAt: ' + (sendAt? sendAt.toString() : 'null'));
+        winston.debug('             in milliseconds: ' + delay);
         
         this.once('settled', function()
         {
-            winston.debug(that.name + ' settled');
+            winston.debug(that.name + ';commandSendAt: Settled - will send in ' + delay + " (actionAt set to" + sendAt.toString() + ")");
             
+			if (actionAt != null)
+			{
+				winston.debug(that.name + ';commandSendAt: Probably clearing previous actionAt');
+				that.cancelTimer();
+			}
             actionAt = sendAt;
 
             timeout = setTimeout(() =>
             {
+				winston.debug(that.name + ';commandSendAt: Timer expired - sending command ' + command + ' and clearing actionAt');
                 actionAt = null;
                 that.commandSend(command);
             }, delay);
@@ -150,6 +157,7 @@ function ohItem(jsonObj)
 
         if (waitForSettle == 0)
         {
+			winston.debug(this.name + ';commandSendAt: Settled had already occurred');
             this.emit('settled');
         }
 
@@ -175,7 +183,7 @@ function ohItem(jsonObj)
 
 util.inherits(ohItem, EventEmitter);
 
-var ohItemFactory = function(/*jsonObj*/)
+var ohItemFactory = function()
 {
 }
 
