@@ -45,9 +45,9 @@ function ohItem(jsonObj)
 	this._restUrl = jsonObj.link;
 	this.parents = {};
 	this.children = {};
-    var actionAt = null;
-    var timeout = null;
-    var waitForSettle = 0;
+    this.actionAt = null;
+    this.timeout = null;
+    this.waitForSettle = 0;
 
     this.on('newListner', () => winston.debug(name + ' has ' + that.listenerCount() + ' listeners'));
 	
@@ -55,7 +55,7 @@ function ohItem(jsonObj)
 	this.__defineGetter__('type', () => { return this._type; });
 	this.__defineGetter__('state', () => { return state; });
 	//this.__defineGetter__('restUrl', () => { return restUrl; });
-    this.__defineGetter__('timerRunning', () => { return actionAt != null; });
+    this.__defineGetter__('timerRunning', () => { return this.actionAt != null; });
 	
 	this.__defineSetter__('state', (value) => 
 	{ 
@@ -63,7 +63,11 @@ function ohItem(jsonObj)
 
         this.cancelTimer();
         state = that.coerceState(value); 
-		this.emit('state', that, oldState, state);
+
+        if (oldState != state)
+        {
+		    this.emit('state', that, oldState, state);
+        }
 	});
 
     this.coerceCommand = (command) => { return command.toString(); }
@@ -72,27 +76,9 @@ function ohItem(jsonObj)
 
     this.requiredState = (command) => { return command; }
 
-    this.cancelTimer = function()
-    {
-        winston.debug(this.name + ';cancelTimer: timerRunning  = ' + that.timerRunning);
+    this.cancelTimer = () => {}
 
-        if (that.timerRunning)
-        {
-            winston.silly(new Error().stack);
-        }
-
-        if (waitForSettle && 0 == --waitForSettle)
-        {
-			winston.debug(this.name + ';cancelTimer - Emitting settled');
-            this.emit('settled');
-        }
-        else if (!waitForSettle && that.timerRunning)
-        {
-			winston.debug(this.name + ';cancelTimer - Clearing actionAt');
-            actionAt = null;
-            clearTimeout(timeout);
-        }
-    }
+    this.notInState = (command) => { return command != state; }
 
     this.commandReceived = function(command)
     {
@@ -101,11 +87,32 @@ function ohItem(jsonObj)
 
     this.commandSend = function(command)
     {
-        this.emit('commandSend', name, this.coerceCommand(command));
-        waitForSettle += 1;
+        if (this.notInState(command))
+        {
+            this.emit('commandSend', name, this.coerceCommand(command));
+            this.waitForSettle += 1;
+            winston.debug('commandSend: waitForSettle for ' + that.name + ' is now ' + this.waitForSettle);
 
-        // In case for some reason we don't see the state update timeout the settle delay
-        setTimeout(() => { if (waitForSettle && 0 == --waitForSettle) this.emit('settled'); }, config.misc.settleTimeout || 10000);
+            // In case for some reason we don't see the state update timeout the settle delay
+            var settleTimeout = setTimeout(() => 
+            { 
+                if (this.waitForSettle && 0 == --this.waitForSettle)
+                {
+                    winston.debug('commandSend: Timed out before settled for ' + that.name);
+                    this.emit('settled');
+                } 
+            }, config.misc.settleTimeout || 10000);
+
+            // Clear timeout if we settle
+            this.once('settled', function()
+            {
+                clearTimeout(settleTimeout);
+            });
+        }
+        else
+        {
+            winston.debug('commandSend: Item is already in the required state - ' + that.name);
+        }
         return this;
     }
 
@@ -113,11 +120,15 @@ function ohItem(jsonObj)
     {
         winston.debug(this.name + ';commandSendWithTimeoutAt: state = ' + this.state + '; command = ' + command);
         winston.debug('   actionAt = ' + ((actionAt == null)? 'null' : actionAt.toString()) + '; sendAt = ' + sendAt.toString());
-        winston.debug('   should run = ' + (this.state != this.requiredState(command) || (this.timerRunning && sendAt.isAfter(actionAt))));
+        winston.debug('   should run = ' + (this.notInState(command) || (this.timerRunning && sendAt.isAfter(actionAt))));
 
-        if (this.state != this.requiredState(command) || (this.timerRunning && sendAt.isAfter(actionAt)))
+        if (this.notInState(command))
         {
             this.commandSend(command);
+        }
+
+        if (!this.timerRunning || (this.timerRunning && sendAt.isAfter(this.actionAt)))
+        {
             this.commandSendAt(sendAt, nextCommand);
         }
 
@@ -145,17 +156,18 @@ function ohItem(jsonObj)
 				winston.debug(that.name + ';commandSendAt: Probably clearing previous actionAt');
 				that.cancelTimer();
 			}
-            actionAt = sendAt;
 
-            timeout = setTimeout(() =>
+            this.actionAt = sendAt;
+
+            this.timeout = setTimeout(() =>
             {
 				winston.debug(that.name + ';commandSendAt: Timer expired - sending command ' + command + ' and clearing actionAt');
-                actionAt = null;
+                this.actionAt = null;
                 that.commandSend(command);
             }, delay);
         });
 
-        if (waitForSettle == 0)
+        if (this.waitForSettle == 0)
         {
 			winston.debug(this.name + ';commandSendAt: Settled had already occurred');
             this.emit('settled');
@@ -290,7 +302,7 @@ ohItemFactory.getItems = function(parsedData, callback)
 
 function ohItemGroup(jsonObj)
 {
-    ohItem.call(this, jsonObj);
+    ohItemGroup.super_.call(this, jsonObj);
     var that = this;
 
     that._type = ohItemType.GROUP;
@@ -385,7 +397,7 @@ util.inherits(ohItemGroup, ohItem);
 
 function ohItemNumber(jsonObj)
 {
-    ohItem.call(this, jsonObj);
+    ohItemNumber.super_.call(this, jsonObj);
     var that = this;
     this.state = this.coerceState(jsonObj.state);
 
@@ -406,7 +418,7 @@ util.inherits(ohItemNumber, ohItem);
 
 function ohItemString(jsonObj)
 {
-    ohItem.call(this, jsonObj);
+    ohItemString.super_.call(this, jsonObj);
     var that = this;
 
     that._type = ohItemType.STRING;
@@ -424,9 +436,39 @@ function ohItemString(jsonObj)
 
 util.inherits(ohItemString, ohItem);
 
+function ohItemCommandTarget(jsonObj)
+{
+    ohItemCommandTarget.super_.call(this, jsonObj);
+    var that = this;
+
+	this.cancelTimer = function()
+    {
+        winston.debug(this.name + ';cancelTimer: timerRunning  = ' + that.timerRunning);
+
+        if (that.timerRunning)
+        {
+            winston.silly(new Error().stack);
+        }
+
+        if (waitForSettle && 0 == --waitForSettle)
+        {
+			winston.debug(this.name + ';cancelTimer - Emitting settled');
+            this.emit('settled');
+        }
+        else if (!waitForSettle && that.timerRunning)
+        {
+			winston.debug(this.name + ';cancelTimer - Clearing actionAt');
+            actionAt = null;
+            clearTimeout(timeout);
+        }
+    }
+}
+
+util.inherits(ohItemCommandTarget, ohItem);
+
 function ohItemSwitch(jsonObj)
 {
-    ohItem.call(this, jsonObj);
+    ohItemSwitch.super_.call(this, jsonObj);
     var that = this;
 
     process.nextTick((newState) => this.state = newState, jsonObj.state);
@@ -476,7 +518,7 @@ function ohItemSwitch(jsonObj)
 
     this.turnOff = () => 
     {
-        that.commandSend('OFF');
+        that.commandSend(false);
         return this;
     }
     
@@ -493,11 +535,11 @@ function ohItemSwitch(jsonObj)
     }
 }
 
-util.inherits(ohItemSwitch, ohItem);
+util.inherits(ohItemSwitch, ohItemCommandTarget);
 
 function ohItemContact(jsonObj)
 {
-    ohItem.call(this, jsonObj);
+    ohItemContact.super_.call(this, jsonObj);
     var that = this;
     this.state = this.coerceState(jsonObj.state);
 
@@ -518,7 +560,7 @@ util.inherits(ohItemContact, ohItem);
 
 function ohItemDate(jsonObj)
 {
-    ohItem.call(this, jsonObj);
+    ohItemDate.super_.call(this, jsonObj);
     var that = this;
     this.state = this.coerceState(jsonObj.state);
 
@@ -539,11 +581,28 @@ util.inherits(ohItemDate, ohItem);
 
 function ohItemDimmer(jsonObj)
 {
-    ohItem.call(this, jsonObj);
+    ohItemDimmer.super_.call(this, jsonObj);
     var that = this;
     this.state = this.coerceState(jsonObj.state);
 
     that._type = ohItemType.DATETIME;
+
+    this.notInState = function(command)
+    {
+        let rc = true;
+
+        if (typeof command == 'number' && command == this.state)
+            rc = false;
+        else if (typeof command == 'boolean')
+            rc = 
+                command && this.state == 100?
+                false:
+                !command && this.state == 0?
+                false:
+                true;
+
+        return rc;
+    }
 
     this.coerceCommand = function(command)
     {
@@ -588,7 +647,7 @@ function ohItemDimmer(jsonObj)
     this.turnOnIn = () => that.setLevelAtIn(sendIn, 100);
 }
 
-util.inherits(ohItemDimmer, ohItem);
+util.inherits(ohItemDimmer, ohItemCommandTarget);
 
 module.exports.ohItem = ohItem;
 module.exports.ohItems = ohItemFactory.ohItems;

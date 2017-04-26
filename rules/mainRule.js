@@ -1,9 +1,9 @@
+"use strict";
+
 var ohItems = require('../ohItem').ohItems;
 var schedule = require('node-schedule');
 var astro = require('../modules/astro');
 var config = require('../config');
-
-"use strict";
 
 var winston = require('winston');
 
@@ -17,6 +17,21 @@ var cancelTimerAtOffRule = function(target)
             if (!target.coerceState(newState))
             {
                 target.cancelTimer();
+            }
+        });
+    }
+}
+
+var outdoorLightsOffRule = function()
+{
+    this.name = "outdoorLightsOffRule";
+    this.init = function()
+    {
+        var job = schedule.scheduleJob( { minute: 0 }, function()
+        {
+            if (!ohItems.isDark)
+            {
+                ohItems.Outdoor_Lights.turnOff();
             }
         });
     }
@@ -103,6 +118,7 @@ rules.push(new garageMotionDetected());
 rules.push(new garageDoorStateChange());
 rules.push(new switchOffAt(ohItems.Outdoor_Lights, { hour: 2, minute: 0, second: 0}));
 rules.push(new switchOffAt(ohItems.Malibu_Lights, { hour: 2, minute: 0, second: 0}));
+rules.push(new outdoorLightsOffRule());
 
 for (var childKey in ohItems.G_Phones.children)
 {
