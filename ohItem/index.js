@@ -85,53 +85,71 @@ function ohItem(jsonObj)
         this.emit('command', name, command);
     }
 
+	this.runWhenSettled = function(waiter)
+	{
+		winston.debug(this.name + ";runWhenSettled");
+		
+		if (this.waitForSettle)
+		{
+			this.once("settled", waiter);
+		}
+		else
+		{
+			waiter();
+		}
+	}
+	
     this.commandSend = function(command)
     {
-        if (this.notInState(command))
-        {
-            this.emit('commandSend', name, this.coerceCommand(command));
-            this.waitForSettle += 1;
-            winston.debug('commandSend: waitForSettle for ' + that.name + ' is now ' + this.waitForSettle);
+		this.runWhenSettled(function()
+		{
+			if (that.notInState(command))
+			{
+				that.emit('commandSend', that.name, that.coerceCommand(command));
+				that.waitForSettle += 1;
+				winston.debug(that.name + ';commandSend: waitForSettle for ' + that.name + ' is now ' + that.waitForSettle);
 
-            // In case for some reason we don't see the state update timeout the settle delay
-            var settleTimeout = setTimeout(() => 
-            { 
-                if (this.waitForSettle && 0 == --this.waitForSettle)
-                {
-                    winston.debug('commandSend: Timed out before settled for ' + that.name);
-                    this.emit('settled');
-                } 
-            }, config.misc.settleTimeout || 10000);
+				// In case for some reason we don't see the state update timeout the settle delay
+				var settleTimeout = setTimeout(() => 
+				{ 
+					if (that.waitForSettle && 0 == --that.waitForSettle)
+					{
+						winston.debug(that.name + ';commandSend: Timed out before settled for ' + that.name);
+						that.emit('settled');
+					} 
+				}, config.misc.settleTimeout || 10000);
 
-            // Clear timeout if we settle
-            this.once('settled', function()
-            {
-                clearTimeout(settleTimeout);
-            });
-        }
-        else
-        {
-            winston.debug('commandSend: Item is already in the required state - ' + that.name);
-        }
+				// Clear timeout if we settle
+				that.once('settled', function()
+				{
+					clearTimeout(settleTimeout);
+				});
+			}
+			else
+			{
+				winston.debug(that.name + ';commandSend: Item is already in the required state - ' + that.name);
+			}
+		});
+		
         return this;
     }
 
     this.commandSendWithTimeoutAt = function(command, sendAt, nextCommand)
     {
         winston.debug(this.name + ';commandSendWithTimeoutAt: state = ' + this.state + '; command = ' + command);
-        winston.debug('   actionAt = ' + ((actionAt == null)? 'null' : actionAt.toString()) + '; sendAt = ' + sendAt.toString());
-        winston.debug('   should run = ' + (this.notInState(command) || (this.timerRunning && sendAt.isAfter(actionAt))));
+        winston.debug('   actionAt = ' + ((this.actionAt == null)? 'null' : this.actionAt.toString()) + '; sendAt = ' + sendAt.toString());
+        winston.debug('   should run = ' + (this.notInState(command) || (this.timerRunning && sendAt.isAfter(this.actionAt))));
 
-        if (this.notInState(command))
-        {
-            this.commandSend(command);
-        }
+        this.commandSend(command);
 
-        if (!this.timerRunning || (this.timerRunning && sendAt.isAfter(this.actionAt)))
-        {
-            this.commandSendAt(sendAt, nextCommand);
-        }
-
+		this.runWhenSettled(function()
+		{
+			if (!that.timerRunning || (that.timerRunning && sendAt.isAfter(that.actionAt)))
+			{
+				that.commandSendAt(sendAt, nextCommand);
+			}
+		});
+		
         return this;
     };
 
@@ -143,35 +161,28 @@ function ohItem(jsonObj)
     this.commandSendAt = function(sendAt, command)
     {
         var delay = sendAt.diff(moment(), 'milliseconds');
-        
-        winston.debug(this.name + ';commandSendAt: ' + (sendAt? sendAt.toString() : 'null'));
-        winston.debug('             in milliseconds: ' + delay);
-        
-        this.once('settled', function()
+		winston.debug(this.name + ';commandSendAt: ' + (sendAt? sendAt.toString() : 'null'));
+		winston.debug('             in milliseconds: ' + delay);
+		
+		this.runWhenSettled(function()
         {
-            winston.debug(that.name + ';commandSendAt: Settled - will send in ' + delay + " (actionAt set to" + sendAt.toString() + ")");
-            
-			if (actionAt != null)
+			winston.debug(that.name + ';commandSendAt: Settled - will send in ' + delay + " (actionAt set to" + sendAt.toString() + ")");
+				
+			if (that.actionAt != null)
 			{
 				winston.debug(that.name + ';commandSendAt: Probably clearing previous actionAt');
 				that.cancelTimer();
 			}
 
-            this.actionAt = sendAt;
+			that.actionAt = sendAt;
 
-            this.timeout = setTimeout(() =>
-            {
+			that.timeout = setTimeout(() =>
+			{
 				winston.debug(that.name + ';commandSendAt: Timer expired - sending command ' + command + ' and clearing actionAt');
-                this.actionAt = null;
-                that.commandSend(command);
-            }, delay);
-        });
-
-        if (this.waitForSettle == 0)
-        {
-			winston.debug(this.name + ';commandSendAt: Settled had already occurred');
-            this.emit('settled');
-        }
+				that.actionAt = null;
+				that.commandSend(command);
+			}, delay);
+		});
 
         return this;
     }
@@ -450,16 +461,16 @@ function ohItemCommandTarget(jsonObj)
             winston.silly(new Error().stack);
         }
 
-        if (waitForSettle && 0 == --waitForSettle)
+        if (this.waitForSettle && 0 == --this.waitForSettle)
         {
 			winston.debug(this.name + ';cancelTimer - Emitting settled');
             this.emit('settled');
         }
-        else if (!waitForSettle && that.timerRunning)
+        else if (!this.waitForSettle && that.timerRunning)
         {
 			winston.debug(this.name + ';cancelTimer - Clearing actionAt');
-            actionAt = null;
-            clearTimeout(timeout);
+            this.actionAt = null;
+            clearTimeout(that.timeout);
         }
     }
 }
