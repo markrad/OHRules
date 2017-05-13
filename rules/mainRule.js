@@ -31,7 +31,7 @@ var outdoorLightsOffRule = function()
         {
             winston.debug('outdoorLightsOffRule: Will run if it\'s dark');
 
-            if (ohItems.isDark.isOn)
+            if (ohItems.Daylight.isOff)
             {
                 winston.debug('outdoorLightsOffRule: Forcing lights off');
                 ohItems.Outdoor_Lights.turnOff();
