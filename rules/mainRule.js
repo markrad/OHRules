@@ -29,7 +29,7 @@ var outdoorLightsOffRule = function()
     {
         var job = schedule.scheduleJob( { minute: 15 }, function()
         {
-            winston.debug('outdoorLightsOffRule: Will run if dark');
+            winston.debug('outdoorLightsOffRule: Will run if it\'s dark');
 
             if (ohItems.isDark.isOn)
             {
