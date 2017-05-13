@@ -27,10 +27,13 @@ var outdoorLightsOffRule = function()
     this.name = "outdoorLightsOffRule";
     this.init = function()
     {
-        var job = schedule.scheduleJob( { minute: 0 }, function()
+        var job = schedule.scheduleJob( { minute: 15 }, function()
         {
-            if (!ohItems.isDark)
+            winston.debug('outdoorLightsOffRule: Will run if dark');
+
+            if (ohItems.isDark.isOn)
             {
+                winston.debug('outdoorLightsOffRule: Forcing lights off');
                 ohItems.Outdoor_Lights.turnOff();
             }
         });
