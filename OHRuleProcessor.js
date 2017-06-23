@@ -27,7 +27,7 @@ if (opts !== undefined)
 	opts.timestamp = timestamp;
 	opts.formatter = function(options) 
 	{
-		return (options.timestampFunction == null? moment().format() : options.timestampFunction()) + ' ' +  options.msg
+		return (options.timestampFunction == null? moment().format() : options.timestampFunction()) + ' ' +  options.message
 	}
 
 	winston.add(winston.transports.MqttLogger, opts);
