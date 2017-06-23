@@ -21,13 +21,18 @@ winston.remove(winston.transports.Console);
 winston.add(winston.transports.Console, { 'colorize': true, 'timestamp' : timestamp });
 
 var opts = config.mqttLogger;
-opts.timestamp = timestamp;
-opts.formatter = function(options) 
+
+if (opts !== undefined)
 {
-	return (options.timestampFunction == null? moment().format() : options.timestampFunction()) + ' ' +  options.msg
+	opts.timestamp = timestamp;
+	opts.formatter = function(options) 
+	{
+		return (options.timestampFunction == null? moment().format() : options.timestampFunction()) + ' ' +  options.msg
+	}
+
+	winston.add(winston.transports.MqttLogger, opts);
 }
 
-winston.add(winston.transports.MqttLogger, opts);
 winston.level = 'debug';
 
 var hostPath = '/rest/items'
