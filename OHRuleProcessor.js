@@ -10,13 +10,24 @@ var ohItems = require('./ohItem').ohItems;
 var config = require('./config.json');
 var winston = require('winston');
 var moment = require('moment');
+var x = require('./modules/winstonMqttLogger')
+
+var timestamp = function()
+{
+	return moment().format();
+}
 
 winston.remove(winston.transports.Console);
-winston.add(winston.transports.Console, { 'timestamp': true, 'colorize': true, 'timestamp' : function()
-	{
-		return moment().format();
-	} 
-});
+winston.add(winston.transports.Console, { 'colorize': true, 'timestamp' : timestamp });
+
+var opts = config.mqttLogger;
+opts.timestamp = timestamp;
+opts.formatter = function(options) 
+{
+	return (options.timestampFunction == null? moment().format() : options.timestampFunction()) + ' ' +  options.msg
+}
+
+winston.add(winston.transports.MqttLogger, opts);
 winston.level = 'debug';
 
 var hostPath = '/rest/items'
