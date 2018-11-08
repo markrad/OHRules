@@ -1,0 +1,38 @@
+{
+  "name": "ohrules",
+  "version": "1.0.0",
+  "description": "Interact with OpenHab and run rules based upon changes published from OpenHab (or just about anything else)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/markrad/OHRules.git"
+  },
+  "keywords": [
+    "OpenHab",
+    "SmartHome",
+    "HomeAutomation"
+  ],
+  "author": "Mark Radbourne",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/markrad/OHRules/issues"
+  },
+  "homepage": "https://github.com/markrad/OHRules#readme",
+  "dependencies": {
+    "async": "^2.6.0",
+    "fs": "0.0.1-security",
+    "http": "0.0.0",
+    "moment": "^2.22.1",
+    "mqtt": "^2.17.0",
+    "node-schedule": "^1.3.0",
+    "path": "^0.12.7",
+    "schedule": "^0.1.0",
+    "suncalc": "^1.8.0",
+    "underscore": "^1.9.0",
+    "walk": "^2.3.13",
+    "winston": "^2.4.2"
+  }
+}
