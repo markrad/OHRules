@@ -182,7 +182,8 @@ class OHRuleServer
                         {
                             winston.silly('OHRuleServer::start - Processing %s of type %s', element.name, ITEMTYPES[that._coerceType(element.type)]);
                             
-                            let typeInd = ITEMTYPES.indexOf(element.type)
+                            let parsedType = element.type.split(':')[0];
+                            let typeInd = ITEMTYPES.indexOf(parsedType);
                             
                             if (typeInd == -1)
                             {
@@ -191,7 +192,7 @@ class OHRuleServer
                             else
                             {
                                 winston.silly('OHRuleServer::start - Constructing %s type %s from %s', element.name, ITEMTYPES[typeInd], JSON.stringify(element, null, 4));
-                                that._items[element.name] = new ohClasses[element.type](element);
+                                that._items[element.name] = new ohClasses[parsedType](element);
                             }
                         });
                         
