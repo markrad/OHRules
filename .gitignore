@@ -43,3 +43,4 @@ jspm_packages
 
 # Keep rules private
 rules/
+/.vscode/arduino.json

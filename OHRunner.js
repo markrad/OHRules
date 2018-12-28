@@ -2,12 +2,12 @@
 
 const ohRuleServer = require('./OHRuleServer').OHRuleServer;
 const config = require('./config.json');
-const mqttLogger = require ('./OHRuleServer/winstonMqttLogger.js');
+//const mqttLogger = require ('./OHRuleServer/winstonMqttLogger.js');
 const mqttLogger2 = require ('./OHRuleServer/winstonMqttLogger2.js');
+const moment = require('moment');
 
 var server = new ohRuleServer(config);
 
-//server.logger.add(mqttLogger, config.mqttLogger);
 server.logger.add(mqttLogger2, config.mqttLogger);
 
 server.start((err, itemCount, ruleCount) =>

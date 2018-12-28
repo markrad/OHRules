@@ -42,16 +42,16 @@ class OHItem extends EventEmitter
     
     stateReceived(state)
     {
-        winston.debug('OHItem:stateReceived [%s] - received %s', this[priv].name, state, this.meta);
+        winston.debug('OHItem:stateReceived [%s] - received %s', this[priv].name, state);
         
-        var oldState = this[priv].state;
+        var oldState = (this[priv].state == undefined)? '' : this[priv].state;
 
         this[priv].state = this.coerceState(state); 
-        this.emit('stateChange', oldState, this.state);
         
         if (oldState != this[priv].state)
         {
-            winston.debug('OHItem:stateReceived [%s] - state changed from %s to %s', this.name, oldState, this[priv].state, this.meta);
+            winston.debug('OHItem:stateReceived [%s] - state changed from %s to %s', this.name, oldState, this[priv].state);
+            this.emit('stateChange', oldState, this.state);
         }
     }
     
@@ -60,7 +60,7 @@ class OHItem extends EventEmitter
     get state() { return this[priv].state; }
     set state(value) 
     { 
-        winston.debug('OHItem:set state [%s] - received %s', this.name, this.coerceCommand(value), this.meta);
+        winston.debug('OHItem:set state [%s] - received %s', this.name, this.coerceCommand(value));
         
         this.emit('stateSet', this.coerceCommand(value));
     }

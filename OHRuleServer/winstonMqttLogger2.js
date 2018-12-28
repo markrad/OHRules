@@ -17,7 +17,7 @@ class MQTTLogger2 extends winston.Transport
 
         this.topic = this.topic.replace('%h', os.hostname());
 
-        this.timestampFunction = options.timestamp || function() { return moment().format(); };
+        this.timestampFunction = options.timestamp || function() { return moment().format() + ' '; };
         this.formatter = options.formatter || null;
     
         this.mqttClient = mqtt.connect(this.host, this.auth);
@@ -66,6 +66,8 @@ class MQTTLogger2 extends winston.Transport
                 value = (!(key in meta))? '' : meta[key] + '/';
                 topic = topic.replace('%' + key + '/', value);
             }
+
+            msg = this.timestampFunction() + msg;
         
             this.mqttClient.publish(topic, msg, null, (err) => 
             {

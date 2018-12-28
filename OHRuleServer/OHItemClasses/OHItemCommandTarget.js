@@ -6,31 +6,69 @@ const EventEmitter = require('events');
 const OHItem = require('./OHItem');
 const moment = require('moment');
 
-var priv = Symbol();
-
 class OHItemCommandTarget extends OHItem
 {
     constructor(jsonObj)
     {
         super(jsonObj);
-        this[priv] = {};
-        this[priv].pendingChange = false;
-        this[priv].timerRunning = false;
-        this[priv].timerMoment = null;
-        this[priv].timer = null;
+        this.pendingChange = false;
+        this.timerRunning = false;
+        this.timerMoment = null;
+        this.timer = null;
     }
     
     _commandSendAtImpl(command, timeAt)
     {
-        winston.debug('OHItemCommandTarget:_commandSendAtImpl [%s] - Updating timer to %s', this.name, timeAt.toString(), this.meta);
-        this[priv].timerMoment = timeAt;
-        this[priv].timerRunning = true;
-        this[priv].timer = setTimeout(() =>
+        winston.debug('OHItemCommandTarget:_commandSendAtImpl [%s] - Updating timer to %s', this.name, timeAt.toString()); 
+
+        if (this.isTimerRunning)
+        {
+            clearTimeout(this.timer);
+        }
+
+        this.timerMoment = timeAt;
+        this.timerRunning = true;
+        this.timer = setTimeout(() =>
         {
             this.commandSend(command);
             this.timerRunning = false;
             this.timerMoment = null;
+            this.timer = null;
         }, timeAt.diff(moment()));
+    }
+/*
+    _stateChangeHandler(handler, oldState, newState)
+    {
+        handler(oldState, newState);
+    }
+*/
+    _awaitChanges()
+    {
+        return new Promise((resolve, reject) =>
+        {
+            var _stateChangeHandler = function(oldState, newState) 
+            {
+                winston.debug('OHItemCommandTarget:_awaitChanges [%s] - Pending change arrived - from %s to %s', this.name, oldState.toString(), newState.toString()); 
+                clearTimeout(timeout);
+                resolve(true);
+            };
+
+            if (this.pendingChange)
+            {
+                var timeout = setTimeout(() => {
+                    winston.warn('OHItemCommandTarget:_awaitChanges [%s] - Pending change did not arrive', this.name); 
+                    this.removeListener('stateChange', _stateChangeHandler);
+                    resolve(false);
+                }, 10 * 1000);
+
+                this.once('stateChange', _stateChangeHandler);
+            }
+            else
+            {
+                winston.debug('OHItemCommandTarget:_awaitChanges [%s] - No change pending', this.name); 
+                resolve(true);
+            }
+        });
     }
     
     coerceCommand(command)
@@ -40,73 +78,70 @@ class OHItemCommandTarget extends OHItem
     
     commandReceived(cmd)
     {
-        winston.debug('OHItemCommandTarget:commandReceived [%s] - received %s', this.name, cmd, this.meta);
-        
-        if (this[priv].timerRunning && this.state != this.coerceState(cmd))
+        winston.debug('OHItemCommandTarget:commandReceived [%s] - received %s', this.name, cmd); //, this.meta);
+/*        
+        if (this.timerRunning && this.state != this.coerceState(cmd))
         {
-            winston.debug('OHItemCommandTarget:commandReceived [%s] - Clearing timer', this.name, this.meta);
-            clearTimeout(this[priv].timer);
-            this[priv].timerRunning = false;
-            this[priv].timerMoment = null;
-            this[priv].timer = null;
+            winston.debug('OHItemCommandTarget:commandReceived [%s] - Clearing timer', this.name); //, this.meta);
+            clearTimeout(this.timer);
+            this.timerRunning = false;
+            this.timerMoment = null;
+            this.timer = null;
         }
-        
-        this.emit('commandReceived', cmd)
+*/        
+        this.pendingChange = true;
+        this.emit('commandReceived', cmd);
+        //this._awaitChanges();
     }
     
     commandSend(command)
     {
-        this[priv].pendingChange = true;
-        this.emit('commandSend', this.coerceCommand(command));
+        if (Boolean(command) != Boolean(this.state))
+        {
+            winston.debug('OHItemCommandTarget:commandSend [%s] Sending %s', this.name, command); 
+            this.pendingChange = true;
+            this.emit('commandSend', this.coerceCommand(command));
+        }
+        else
+        {
+            winston.debug('OHItemCommandTarget:commandSend [%s] Already in state %s', this.name, command); 
+        }
     }
     
     commandSendAt(command, timeAt)
     {
         var localTimeAt = timeAt;
-        winston.debug('OHItemCommandTarget:commandSendAt [%s] Sending %s at %s', this.name, command, localTimeAt.toString(), this.meta);
+        winston.debug('OHItemCommandTarget:commandSendAt [%s] Sending %s at %s', this.name, command, localTimeAt.toString()); 
         
-        if (!this[priv].timerRunning || localTimeAt.isAfter(this[priv].timerMoment))
+        if (!this.timerRunning || localTimeAt.isAfter(this.timerMoment))
         {
-            if (this[priv].pendingChange)
-            {
-                winston.debug('OHItemCommandTarget:commandSendAt [%s] - Awaiting pending change', this.name, this.meta);
-                
-                var timeout = setTimeout(() => {
-                    winston.warn('OHItemCommandTarget:commandSendAt [%s] - Pending change did not arrive', this.name, this.meta);
-                    this._commandSendAtImpl(command, localTimeAt);
-                }, 10 * 1000);
-                this.once('stateChange', () =>
+            this._awaitChanges()
+                .then(() => 
                 {
-                    winston.debug('OHItemCommandTarget:commandSendAt [%s] - Pending change arrived', this.name, this.meta);
-                    clearTimeout(timeout);
                     this._commandSendAtImpl(command, localTimeAt);
                 });
-            }
-            else
-            {
-                this._commandSendAtImpl(command, localTimeAt);
-            }
         }
         else
         {
-            winston.debug('OHItemCommandTarget:commandSendAt [%s] - Timer %s is earlier', this.name, timer[priv].timerMoment.toString(), this.meta);
+            winston.debug('OHItemCommandTarget:commandSendAt [%s] - Timer %s is earlier than %s', this.name, localTimeAt.toString(), timer.timerMoment.toString()); 
         }
     }
     
     stateReceived(state)
     {
         super.stateReceived(state);
-        winston.silly(this[priv].name + ' ' + typeof this + ' ' + util.inspect(this));
+        winston.silly(this.name + ' ' + typeof this + ' ' + util.inspect(this));
         
-        if (!this[priv].pendingChange && this[priv].timerRunning)
+        if (this.isTimerRunning)
         {
-            clearTimeout(this[priv].timer);
-            this[priv].timerRunning = false;
-            this[priv].timerMoment = null;
-            this[priv].timer = null;
+            winston.debug('OHItemCommandTarget:stateReceived [%s] - Clearing timer', this.name); 
+            clearTimeout(this.timer);
+            this.timerRunning = false;
+            this.timerMoment = null;
+            this.timer = null;
         }
         
-        this[priv].pendingChange = false;
+        this.pendingChange = false;
     }
     
     turnOn()
@@ -131,7 +166,7 @@ class OHItemCommandTarget extends OHItem
     
     get isTimerRunning()
     {
-        return this[priv].timerRunning;
+        return this.timerRunning;
     }
 }
 
