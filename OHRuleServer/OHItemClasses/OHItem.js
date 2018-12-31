@@ -4,8 +4,6 @@ const util = require('util');
 const winston = require('winston');
 const EventEmitter = require('events');
 
-var priv = Symbol();
-
 class OHItem extends EventEmitter
 {
     constructor(jsonObj)
@@ -13,11 +11,10 @@ class OHItem extends EventEmitter
         super();
         winston.silly('OHItem:constructor - Creating %s type %s', jsonObj.name, jsonObj.type, { 'OHItem':  jsonObj.name });
         winston.silly('OHItem:constructor - Create from \r\n%s', JSON.stringify(jsonObj, null, 4), { 'OHItem':  jsonObj.name });
-        this[priv] = {};
-        this[priv].name = jsonObj.name;
-        this[priv].state = '';
-        this[priv].parents = [];
-        this[priv].meta = { "OHItem": this.name };
+        this._name = jsonObj.name;
+        this._state = '';
+        this._parents = [];
+
         process.nextTick(() =>
         {
             this.stateReceived(jsonObj.state);
@@ -26,12 +23,12 @@ class OHItem extends EventEmitter
     
     addParent(parent)
     {
-        this[priv].parents.push(parent);
+        this._parents.push(parent);
     }
     
     coerceCommand(command)
     {
-        winston.debug('OHItem:stateReceived [%s] - state coerced', this.name, this.meta);
+        winston.debug('OHItem:stateReceived [%s] - state coerced', this.name);
         return command;
     }
     
@@ -42,29 +39,28 @@ class OHItem extends EventEmitter
     
     stateReceived(state)
     {
-        winston.debug('OHItem:stateReceived [%s] - received %s', this[priv].name, state);
+        winston.debug('OHItem:stateReceived [%s] - received %s', this.name, state);
         
-        var oldState = (this[priv].state == undefined)? '' : this[priv].state;
+        var oldState = (this.state == undefined)? '' : this.state;
 
-        this[priv].state = this.coerceState(state); 
+        this._state = this.coerceState(state); 
         
-        if (oldState != this[priv].state)
+        if (oldState != this.state)
         {
-            winston.debug('OHItem:stateReceived [%s] - state changed from %s to %s', this.name, oldState, this[priv].state);
+            winston.debug('OHItem:stateReceived [%s] - state changed from %s to %s', this.name, oldState, this.state);
             this.emit('stateChange', oldState, this.state);
         }
     }
     
-    get name() { return this[priv].name; }
-    get meta() { return this[priv].meta; }
-    get state() { return this[priv].state; }
+    get name() { return this._name; }
+    get state() { return this._state; }
     set state(value) 
     { 
         winston.debug('OHItem:set state [%s] - received %s', this.name, this.coerceCommand(value));
         
         this.emit('stateSet', this.coerceCommand(value));
     }
-    get parents() { return this[priv].parents; }
+    get parents() { return this._parents; }
 }
 
 module.exports = OHItem;

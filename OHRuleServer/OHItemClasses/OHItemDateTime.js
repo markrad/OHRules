@@ -6,8 +6,6 @@ const EventEmitter = require('events');
 const moment = require('moment');
 const OHItem = require('./OHItem');
 
-var priv = Symbol();
-
 class OHItemDateTime extends OHItem
 {
     constructor(jsonObj)

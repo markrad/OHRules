@@ -5,8 +5,6 @@ const winston = require('winston');
 const EventEmitter = require('events');
 const OHItem = require('./OHItem');
 
-var priv = Symbol();
-
 class OHItemContact extends OHItem
 {
     constructor(jsonObj)

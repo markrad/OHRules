@@ -11,8 +11,6 @@ const fs = require('fs');
 const mqtt = require('mqtt');
 const _ = require('underscore');
 
-//var priv = Symbol();
-
 winston.remove(winston.transports.Console);
 winston.add(winston.transports.Console, { 'colorize': true, 'timestamp' : function() { return moment().format(); } });
 //winston.level = 'silly';
@@ -40,9 +38,6 @@ class OHRuleServer
         this._mqttClient = null;
         this._items = {};
         this._modules = [];
-        
-        //this[priv] = {};
-        //this[priv].configFile = configFile;
         
         winston.level = this._config.winston.logLevel || 'debug';
         winston.debug('OHRuleServer::constructor - Construction complete');

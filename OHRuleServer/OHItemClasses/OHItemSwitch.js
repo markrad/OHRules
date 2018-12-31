@@ -6,8 +6,6 @@ const EventEmitter = require('events');
 const OHItem = require('./OHItem');
 const OHItemCommandTarget = require('./OHItemCommandTarget');
 
-var priv = Symbol();
-
 class OHItemSwitch extends OHItemCommandTarget
 {
     constructor(jsonObj)

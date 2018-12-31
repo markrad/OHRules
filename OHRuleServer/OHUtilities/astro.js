@@ -134,6 +134,11 @@ function astro()
         return result;
     }
 
+    this.isLight = function()
+    {
+        return this.isDark == false;
+    }
+
     midnight();
 
     schedule.scheduleJob({hour: 0, minute: 0, second: 0 }, () => midnight());

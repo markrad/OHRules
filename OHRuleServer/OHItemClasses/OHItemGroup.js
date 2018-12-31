@@ -5,20 +5,17 @@ const winston = require('winston');
 const EventEmitter = require('events');
 const OHItem = require('./OHItem');
 
-var priv = Symbol();
-
 class OHItemGroup extends OHItem
 {
     constructor(jsonObj)
     {
         super(jsonObj);
-        this[priv] = {};
-        this[priv].children = [];
+        this._children = [];
     }
     
     addChild(child)
     {
-        this[priv].children.push(child);
+        this._children.push(child);
     }
     
     // coerceState(state)
@@ -26,7 +23,7 @@ class OHItemGroup extends OHItem
         // return super.coerceState(state);
     // }
 
-    get children() { return this[priv].children; }
+    get children() { return this._children; }
 }
 
 module.exports = OHItemGroup;

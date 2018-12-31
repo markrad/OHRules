@@ -65,8 +65,8 @@ class startupRule extends OHRuleBase
         
         schedule.scheduleJob(rule, () =>
         {
-            winston.debug('startupRule:run - Checking outdoor lights isDark=%s;Outdoor_Lights=%s', astro.isDark(), ohRuleServer.items.Outdoor_Lights.isOn);
-            if (astro.isDark() && ohRuleServer.items.Outdoor_Lights.isOn)
+            winston.debug('startupRule:run - Checking outdoor lights isDark=%s;Outdoor_Lights=%s', astro.isLight(), ohRuleServer.items.Outdoor_Lights.isOn);
+            if (astro.isLight() && ohRuleServer.items.Outdoor_Lights.isOn)
             {
                 ohRuleServer.items.Outdoor_Lights.turnOff();
             }
