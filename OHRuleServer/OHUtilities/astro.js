@@ -82,28 +82,50 @@ function astro()
 
     var moonPhase = function()
     {
-        var moon = sunCalc.getMoonIllumination(new Date());
-        winston.debug(util.inspect(moon));
+        var d1 = moment().set({ 'h': 12, 'm': 0, 's': 0, 'ms': 0 });
+        var d2 = d1.add(1, 'd');
+        var moon1 = sunCalc.getMoonIllumination(d1);
+        var moon2 = sunCalc.getMoonIllumination(d2);
+        var phase = 'Not Set';
 
-        var phase = 
-            moon.phase == 0.0?
-            "NEW_MOON":
-            moon.phase < 0.25?
-            "WAXING_CRESENT":
-            moon.phase == 0.25?
-            "FIRST_QUARTER":
-            moon.phase < 0.5?
-            "WAXING_GIBBOUS":
-            moon.phase == 0.5?
-            "FULL_MOON":
-            moon.phase < 0.75?
-            "WANING_GIBBOUS":
-            moon.phase == 0.75?
-            "LAST_QUARTER":
-            moon.phase < 1.0?
-            "WANING_CRESENT":
-            "FUCK_KNOWS";
+        if (moon1.phase > moon2.phase)
+        {
+            phase = 'New Moon';
+        }
+        else if (moon1.phase < 0.25 && moon2.phase > 0.25)
+        {
+            phase = 'First Quarter';
+        }
+        else if (moon1.phase < 0.5 && moon2.phase > 0.5)
+        {
+            phase = 'Full Moon';
+        }
+        else if (moon1.phase < 0.75 && moon2.phase > 0.75)
+        {
+            phase = 'Last Quarter';
+        }
+        else if (moon1.phase < 0.25)
+        {
+            phase = 'Waxing Cresent'
+        }
+        else if (moon1.phase < 0.5)
+        {
+            phase = 'Waxing Gibbous'
+        }
+        else if (moon1.phase < 0.75)
+        {
+            phase = 'Waning Gibbous'
+        }
+        else if (moon1.phase < 1.0)
+        {
+            phase = 'Waning Cresent'
+        }
+        else
+        {
+            phase = 'Fuck Knows'
+        }
 
+        winston.debug('astro - Moon Phase = %s', phase);
         return phase;
     }
     
