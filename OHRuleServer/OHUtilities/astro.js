@@ -83,10 +83,12 @@ function astro()
     var moonPhase = function()
     {
         var d1 = moment().set({ 'h': 12, 'm': 0, 's': 0, 'ms': 0 });
-        var d2 = d1.add(1, 'd');
+        var d2 = moment().set({ 'h': 12, 'm': 0, 's': 0, 'ms': 0 }).add(1, 'd');
         var moon1 = sunCalc.getMoonIllumination(d1);
         var moon2 = sunCalc.getMoonIllumination(d2);
         var phase = 'Not Set';
+
+        winston.debug("d1=" + d1.format() + ";d2=" + d2.format() + ";moon1.phase=" + moon1.phase + ";moon2.phase=" + moon2.phase);
 
         if (moon1.phase > moon2.phase)
         {
@@ -133,6 +135,14 @@ function astro()
     {
         return lastEventSave;
     }
+
+    this.getEvent = function(eventName)
+    {
+        if (this.times.hasOwnProperty(eventName))
+            return this.times[eventName].format();
+        else
+            return "0";
+    }
     
     this.lastMoonPhase = function()
     {
@@ -158,7 +168,7 @@ function astro()
 
     this.isLight = function()
     {
-        return this.isDark == false;
+        return this.isDark() == false;
     }
 
     midnight();

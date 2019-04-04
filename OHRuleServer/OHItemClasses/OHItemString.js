@@ -11,6 +11,12 @@ class OHItemString extends OHItem
     {
         super(jsonObj);
     }
-}
+
+    commandReceived(cmd)
+    {
+        winston.debug('OHItemString:commandReceived [%s] - received %s', this.name, cmd); 
+        this.emit('commandReceived', cmd);
+    }
+ }
 
 module.exports = OHItemString;

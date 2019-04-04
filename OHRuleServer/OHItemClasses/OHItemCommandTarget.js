@@ -24,12 +24,15 @@ class OHItemCommandTarget extends OHItem
         if (this.isTimerRunning)
         {
             clearTimeout(this.timer);
+            this.emit('timerchange', this, 'cleared', 'overridden');
         }
 
         this.timerMoment = timeAt;
         this.timerRunning = true;
+        this.emit('timerchange', this, 'set', this.timerMoment);
         this.timer = setTimeout(() =>
         {
+            this.emit('timerchange', this, 'triggered', command);
             this.commandSend(command);
             this.timerRunning = false;
             this.timerMoment = null;
@@ -134,6 +137,7 @@ class OHItemCommandTarget extends OHItem
         
         if (this.isTimerRunning)
         {
+            this.emit('timerchange', this, 'cleared', 'stateReceived');
             winston.debug('OHItemCommandTarget:stateReceived [%s] - Clearing timer', this.name); 
             clearTimeout(this.timer);
             this.timerRunning = false;

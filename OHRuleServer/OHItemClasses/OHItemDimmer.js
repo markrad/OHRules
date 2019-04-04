@@ -4,9 +4,10 @@ const util = require('util');
 const winston = require('winston');
 const EventEmitter = require('events');
 const OHItem = require('./OHItem');
+const OHItemSwitch = require('./OHItemSwitch');
 const OHItemCommandTarget = require('./OHItemCommandTarget');
 
-class OHItemDimmer extends OHItem
+class OHItemDimmer extends OHItemSwitch
 {
     constructor(jsonObj)
     {
@@ -18,7 +19,7 @@ class OHItemDimmer extends OHItem
         switch (typeof command)
         {
             case "string":
-                return command;
+                return command == 'ON'? 100 : 0;
             case "number":
                 return "" + number;
             case "boolean":
@@ -31,7 +32,21 @@ class OHItemDimmer extends OHItem
 
     coerceState(state)
     {
-        let newState = parseInt(state);
+        let stateStr = state.toString();
+        let newState = NaN;
+
+        switch (stateStr)
+        {
+            case "ON":
+                newState = 100;
+                break;
+            case "OFF":
+                newState = 0;
+                break;
+            default:
+                newState = parseInt(stateStr);
+                break;
+        }
         
         winston.silly('OHItemSwitch:coerceState [%s] - Coercing state %s to %s', this.name, state, newState, this.meta);
         
@@ -44,4 +59,4 @@ class OHItemDimmer extends OHItem
     }
 }
 
-module.exports = OHItemCommandTarget;
+module.exports = OHItemDimmer;

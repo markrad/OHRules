@@ -15,8 +15,8 @@ class OHItemDateTime extends OHItem
     
     coerceState(state)
     {
-        winston.debug('OHItemDateTime:coerceState: [%s] coercing %s', this.name, state, this.meta);
-        return (state == "NULL")? moment() : moment(state);
+        winston.debug('OHItemDateTime:coerceState: [%s] coercing %s', this.name, state);
+        return (state == "NULL")? moment() : moment(new Date(state));
     }
 }
 

@@ -12,6 +12,8 @@ class OHItem extends EventEmitter
         winston.silly('OHItem:constructor - Creating %s type %s', jsonObj.name, jsonObj.type, { 'OHItem':  jsonObj.name });
         winston.silly('OHItem:constructor - Create from \r\n%s', JSON.stringify(jsonObj, null, 4), { 'OHItem':  jsonObj.name });
         this._name = jsonObj.name;
+        this._tags = jsonObj.tags;
+        this._category = jsonObj.category;
         this._state = '';
         this._parents = [];
 
@@ -61,6 +63,8 @@ class OHItem extends EventEmitter
         this.emit('stateSet', this.coerceCommand(value));
     }
     get parents() { return this._parents; }
+    get tags() { return this._tags; }
+    get category() { return this._category; }
 }
 
 module.exports = OHItem;

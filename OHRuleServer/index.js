@@ -166,18 +166,16 @@ class OHRuleServer
                 response.on('data', (chunk) => rawData += chunk);
                 response.on('end', () =>
                 {
-                    var itemArray = '';
-                    
                     try
                     {
                         winston.silly(rawData);
-                        itemArray = JSON.parse(rawData);
+                        var itemArray = JSON.parse(rawData);
                         
                         _.each(itemArray, function(element, index, list)
                         {
-                            winston.silly('OHRuleServer::start - Processing %s of type %s', element.name, ITEMTYPES[that._coerceType(element.type)]);
-                            
                             let parsedType = element.type.split(':')[0];
+                            winston.silly('OHRuleServer::start - Processing %s of type %s', element.name, ITEMTYPES[that._coerceType(parsedType)]);
+                            
                             let typeInd = ITEMTYPES.indexOf(parsedType);
                             
                             if (typeInd == -1)
