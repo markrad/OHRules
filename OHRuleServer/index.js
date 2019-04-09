@@ -186,6 +186,24 @@ class OHRuleServer
                             {
                                 winston.silly('OHRuleServer::start - Constructing %s type %s from %s', element.name, ITEMTYPES[typeInd], JSON.stringify(element, null, 4));
                                 that._items[element.name] = new ohClasses[parsedType](element);
+
+                                if (winston.level == 'debug')
+                                {
+                                    that._items[element.name].on("timerchange", (thisItem, reason, arg) => {
+                                        switch (reason)
+                                        {
+                                            case "cleared":
+                                                winston.debug("OHRuleServer::ontimerchange [%s] cleared - %s", thisItem.name, arg);
+                                                break;
+                                            case "set":
+                                                winston.debug("OHRuleServer::ontimerchange [%s] set for %s", thisItem.name, arg.toString());
+                                                break;
+                                            case "triggered":
+                                                winston.debug("OHRuleServer::ontimerchange [%s] triggered - %s", thisItem.name, arg.toString());
+                                                break;
+                                        }
+                                    });
+                                }
                             }
                         });
                         
