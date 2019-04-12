@@ -111,22 +111,63 @@ class OHItemCommandTarget extends OHItem
         }
     }
     
-    commandSendAt(command, timeAt)
+    commandThisThenThat(commandNow, commandNext, timeAt)
     {
-        var localTimeAt = timeAt;
-        winston.debug('OHItemCommandTarget:commandSendAt [%s] Sending %s at %s', this.name, command, localTimeAt.toString()); 
-        
-        if (!this.timerRunning || localTimeAt.isAfter(this.timerMoment))
+        if (!this.isTimerRunning && this.state == commandNow)
         {
+            // Specifically set to request state - do not set a timer
+            this.emit('timerchange', this, 'ignored');
+            return;
+        }
+        else if (this.isTimerRunning && this.state != commandNow)
+        {
+            winston.warn("OHItemCommandTarget:commandThisThenThat: Unable to reconcile request");
+            return;
+        }
+        else if (!this.isTimerRunning || timeAt.isAfter(this.timerMoment))
+        {
+            this.commandSend(commandNow);
             this._awaitChanges()
-                .then(() => 
+                .then(() =>
                 {
-                    this._commandSendAtImpl(command, localTimeAt);
+                    this._commandSendAtImpl(commandNext, timeAt);
                 });
+        }
+        else if (!this.isTimerRunning && !timeAt.isAfter(this.timerMoment))
+        {
+            winston.debug("OHItemCommandTarget:commandThisThenThat: Timer is already after the requested time");
+            this.emit('timerchange', this, 'ignored');
         }
         else
         {
-            winston.debug('OHItemCommandTarget:commandSendAt [%s] - Timer %s is earlier than %s', this.name, localTimeAt.toString(), timer.timerMoment.toString()); 
+            winston.warn("OHItemCommandTarget:commandThisThenThat: Should not get here");
+        }
+    }
+
+    commandSendAt(command, timeAt)
+    {
+        var localTimeAt = timeAt;
+
+        if (command == this.state)
+        {
+            winston.debug('OHItemCommandTarget:commandSendAt [%s] Ignoring command at %s - already in this state', this.name, command, localTimeAt.toString());
+        }
+        else
+        {
+            winston.debug('OHItemCommandTarget:commandSendAt [%s] Sending %s at %s', this.name, command, localTimeAt.toString()); 
+        
+            if (!this.isTimerRunning || localTimeAt.isAfter(this.timerMoment))
+            {
+                this._awaitChanges()
+                    .then(() => 
+                    {
+                        this._commandSendAtImpl(command, localTimeAt);
+                    });
+            }
+            else
+            {
+                winston.debug('OHItemCommandTarget:commandSendAt [%s] - Timer %s is earlier than %s', this.name, localTimeAt.toString(), timer.timerMoment.toString()); 
+            }
         }
     }
     

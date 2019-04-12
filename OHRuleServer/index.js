@@ -201,6 +201,11 @@ class OHRuleServer
                                             case "triggered":
                                                 winston.debug("OHRuleServer::ontimerchange [%s] triggered - %s", thisItem.name, arg.toString());
                                                 break;
+                                            case "ignored":
+                                                winston.debug("OHRuleServer::ontimerchange [%s] ignored", thisItem.name);
+                                                break;
+                                            default:
+                                                winston.debug("OHRuleServer::ontimerchange [%s] unknown", thisItem.name);
                                         }
                                     });
                                 }

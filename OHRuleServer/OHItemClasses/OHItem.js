@@ -30,7 +30,7 @@ class OHItem extends EventEmitter
     
     coerceCommand(command)
     {
-        winston.debug('OHItem:stateReceived [%s] - state coerced', this.name);
+        winston.debug('OHItem:coerceCommand [%s] - state coerced', this.name);
         return command;
     }
     
