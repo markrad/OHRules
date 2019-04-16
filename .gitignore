@@ -2,6 +2,7 @@
 config.json
 .gitignore~
 testrules
+rules
 
 # Logs
 logs
