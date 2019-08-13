@@ -21,11 +21,11 @@ class OHItemDimmer extends OHItemSwitch
             case "string":
                 return command == 'ON'? 100 : 0;
             case "number":
-                return "" + (number > 100
+                return "" + (command > 100
                     ? 100 
-                    : number < -1
+                    : command < 0
                     ? 0
-                    : number);
+                    : command);
             case "boolean":
                 return (command == true)? "100" : "0";
             default:
@@ -41,9 +41,11 @@ class OHItemDimmer extends OHItemSwitch
 
         switch (stateStr)
         {
+            case 'true':
             case "ON":
                 newState = 100;
                 break;
+            case 'false':
             case "OFF":
                 newState = 0;
                 break;

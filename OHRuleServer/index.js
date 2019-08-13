@@ -192,6 +192,8 @@ class OHRuleServer
                                     that._items[element.name].on("timerchange", (thisItem, reason, arg) => {
                                         switch (reason)
                                         {
+                                            case "info":
+                                                winston.debug("OHRuleServer::ontimerchange [%s] set for %s", thisItem.name, arg.toString());
                                             case "cleared":
                                                 winston.debug("OHRuleServer::ontimerchange [%s] cleared - %s", thisItem.name, arg);
                                                 break;

@@ -4,7 +4,6 @@ const ohRuleServer = require('./OHRuleServer').OHRuleServer;
 const config = require('./config.json');
 //const mqttLogger = require ('./OHRuleServer/winstonMqttLogger.js');
 const mqttLogger2 = require ('./OHRuleServer/winstonMqttLogger2.js');
-const moment = require('moment');
 
 var server = new ohRuleServer(config);
 

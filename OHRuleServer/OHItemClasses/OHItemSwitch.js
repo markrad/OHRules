@@ -31,12 +31,24 @@ class OHItemSwitch extends OHItemCommandTarget
 
     coerceState(state)
     {
-        let newState = 
-            state == 'ON'
-            ? 100
-            : state == 'OFF'
-            ? 0
-            : NaN;
+        let stateStr = state.toString();
+        let newState = -1;
+
+        switch (stateStr)
+        {
+            case 'true':
+            case "ON":
+                newState = 100;
+                break;
+            case 'false':
+            case "OFF":
+                newState = 0;
+                break;
+            default:
+                newState = NaN;
+                break;
+        }
+        
         winston.silly('OHItemSwitch:coerceState [%s] - Coercing state %s to %s', this.name, state, newState, this.meta);
         
         return newState;

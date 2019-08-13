@@ -113,35 +113,53 @@ class OHItemCommandTarget extends OHItem
     
     commandThisThenThat(commandNow, commandNext, timeAt)
     {
-        if (!this.isTimerRunning && this.state == commandNow)
+        // Should we run:
+        // a) if there is no timer running
+        //    i) if the device is in the required state then NO
+        // b) if there is a timer running
+        //    i) if the new timer is not later than the old timer then NO
+        // c) yes RUN
+
+        var cmdNow = this.coerceState(commandNow);
+        var cmdNext = this.coerceState(commandNext);
+        winston.debug(`OHItemCommandTarget:commandThisThenThat: cmdNow=${cmdNow};cmdNext=${cmdNext};state=${this.state}`);
+
+        if (this.isTimerRunning == false)
         {
-            // Specifically set to request state - do not set a timer
-            this.emit('timerchange', this, 'ignored');
-            return;
+            this.emit('timerchange', this, 'info', 'Timer is not running');
+
+            if (this.state == cmdNow)
+            {
+                this.emit('timerchange', this, 'info', 'Device is already in required state');
+                return false;
+            }
         }
-        else if (this.isTimerRunning && this.state != commandNow)
+        else if (this.state != cmdNow)
         {
-            winston.warn("OHItemCommandTarget:commandThisThenThat: Unable to reconcile request");
-            return;
-        }
-        else if (!this.isTimerRunning || timeAt.isAfter(this.timerMoment))
-        {
-            this.commandSend(commandNow);
-            this._awaitChanges()
-                .then(() =>
-                {
-                    this._commandSendAtImpl(commandNext, timeAt);
-                });
-        }
-        else if (!this.isTimerRunning && !timeAt.isAfter(this.timerMoment))
-        {
-            winston.debug("OHItemCommandTarget:commandThisThenThat: Timer is already after the requested time");
-            this.emit('timerchange', this, 'ignored');
+            winston.warn("OHItemCommandTarget:commandThisThenThat: Timer running for different state");
+            this.emit('timerchange', this, 'warn', 'Timer running for different state');
+            return false;
         }
         else
         {
-            winston.warn("OHItemCommandTarget:commandThisThenThat: Should not get here");
+            this.emit('timerchange', this, 'info', 'Timer is running');
+
+            if (timeAt.isAfter(this.timerMoment) == false)
+            {
+                this.emit('timerchange', this, 'info', 'Current timer is later than requested');
+                return false;
+            }
         }
+
+        this.emit('timerchange', this, 'info', 'Passed');
+
+        this.commandSend(cmdNow);
+        this._awaitChanges().then(() =>
+        {
+            this._commandSendAtImpl(cmdNext, timeAt);
+        });
+
+        return true;
     }
 
     commandSendAt(command, timeAt)
