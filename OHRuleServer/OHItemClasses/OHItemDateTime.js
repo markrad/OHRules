@@ -1,10 +1,11 @@
 'use strict';
 
 const util = require('util');
-const winston = require('winston');
 const EventEmitter = require('events');
 const moment = require('moment');
 const OHItem = require('./OHItem');
+
+const logger = require('log4js').getLogger();
 
 class OHItemDateTime extends OHItem
 {
@@ -15,7 +16,7 @@ class OHItemDateTime extends OHItem
     
     coerceState(state)
     {
-        winston.debug('OHItemDateTime:coerceState: [%s] coercing %s', this.name, state);
+        logger.debug(`OHItemDateTime:coerceState: [${this.name}] coercing ${state}`);
         return (state == "NULL")? moment() : moment(new Date(state));
     }
 }

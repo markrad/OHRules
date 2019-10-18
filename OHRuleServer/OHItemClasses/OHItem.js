@@ -1,16 +1,17 @@
 'use strict';
 
 const util = require('util');
-const winston = require('winston');
 const EventEmitter = require('events');
+
+const logger = require('log4js').getLogger();
 
 class OHItem extends EventEmitter
 {
     constructor(jsonObj)
     {
         super();
-        winston.silly('OHItem:constructor - Creating %s type %s', jsonObj.name, jsonObj.type, { 'OHItem':  jsonObj.name });
-        winston.silly('OHItem:constructor - Create from \r\n%s', JSON.stringify(jsonObj, null, 4), { 'OHItem':  jsonObj.name });
+        logger.trace(`OHItem:constructor - Creating ${jsonObj.name} type ${jsonObj.type}`);
+        logger.trace(`OHItem:constructor - Create from \r\n${JSON.stringify(jsonObj, null, 4)}`);
         this._name = jsonObj.name;
         this._tags = jsonObj.tags;
         this._category = jsonObj.category;
@@ -30,7 +31,7 @@ class OHItem extends EventEmitter
     
     coerceCommand(command)
     {
-        winston.debug('OHItem:coerceCommand [%s] - state coerced', this.name);
+        logger.debug(`OHItem:coerceCommand [${this.name}] - state coerced`);
         return command;
     }
     
@@ -41,7 +42,7 @@ class OHItem extends EventEmitter
     
     stateReceived(state)
     {
-        winston.debug('OHItem:stateReceived [%s] - received %s', this.name, state);
+        logger.debug(`OHItem:stateReceived [${this.name}] - received ${state}`);
         
         var oldState = (this.state == undefined)? '' : this.state;
 
@@ -49,7 +50,7 @@ class OHItem extends EventEmitter
         
         if (oldState != this.state)
         {
-            winston.debug('OHItem:stateReceived [%s] - state changed from %s to %s', this.name, oldState, this.state);
+            logger.debug(`OHItem:stateReceived [${ this.name}] - state changed from ${oldState} to ${this.state}`);
             this.emit('stateChange', oldState, this.state);
         }
     }
@@ -58,7 +59,7 @@ class OHItem extends EventEmitter
     get state() { return this._state; }
     set state(value) 
     { 
-        winston.debug('OHItem:set state [%s] - received %s', this.name, this.coerceCommand(value));
+        logger.debug(`OHItem:set state [${this.name}] - received ${this.coerceCommand(value)}`);
         
         this.emit('stateSet', this.coerceCommand(value));
     }

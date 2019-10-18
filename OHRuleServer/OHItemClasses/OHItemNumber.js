@@ -1,9 +1,10 @@
 'use strict';
 
 const util = require('util');
-const winston = require('winston');
 const EventEmitter = require('events');
 const OHItem = require('./OHItem');
+
+const logger = require('log4js').getLogger();
 
 class OHItemNumber extends OHItem
 {
@@ -16,7 +17,7 @@ class OHItemNumber extends OHItem
     {
         let newState = parseFloat(state);
         
-        winston.silly('OHItemSwitch:coerceState [%s] - Coercing state %s to %s', this.name, state, newState, this.meta);
+        logger.trace(`OHItemSwitch:coerceState [${this.name}] - Coercing state ${state} to ${newState}`);
         
         return newState;
     }

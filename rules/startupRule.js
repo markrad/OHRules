@@ -22,7 +22,7 @@ class startupRule extends OHRuleBase
         winston = ohRuleServer.logger;
         astro.on('astroevent', (myEvent) => 
         {
-            winston.debug('startupRule:run - Event %s has occured', myEvent);
+            winston.debug(`startupRule:run - Event ${myEvent} has occured`);
             ohRuleServer.items.LastAstroEvent.state = myEvent;
             
             if (myEvent == ohRuleServer.config.astro.daystart)
@@ -44,11 +44,11 @@ class startupRule extends OHRuleBase
             {
                 if (action != "set")
                 {
-                    winston.debug("Timerchange: Item=" + item.name + ";action=" + action + ";reason=" + reason);
+                    winston.debug(`Timerchange: Item=${item.name};action=${action};reason=${reason}`);
                 }
                 else
                 {
-                    winston.debug("Timerchange: Item=" + item.name + ";action=" + action + ";time=" + reason.toString());
+                    winston.debug(`Timerchange: Item=${item.name};action=${action};time=${reason.toString()}`);
                 }
             });
         });
@@ -61,27 +61,27 @@ class startupRule extends OHRuleBase
         ohRuleServer.items.Sunrise.state = astro.getEvent("sunrise");
         ohRuleServer.items.Sunset.state = astro.getEvent("sunset");
         
-        winston.debug('startupRule:run - astro.isDark()=%s;moment().hour()=%s', astro.isDark(), moment().hour());
+        winston.debug(`startupRule:run - astro.isDark()=${astro.isDark()};moment().hour()=${moment().hour()}`);
         
         if (astro.isDark() && (moment().hour() < 3 || moment().hour() > 12))
         {
             ohRuleServer.items.Malibu_Lights.turnOn();
         }
-        else if (astro.isLight && ohRuleServer.items.Malibu_Lights.isOn)
-        {
-            ohRuleServer.items.Malibu_Lights.turnOff();
-        }
+        // else if (astro.isLight && ohRuleServer.items.Malibu_Lights.isOn)
+        // {
+        //     ohRuleServer.items.Malibu_Lights.turnOff();
+        // }
         
-        if (astro.isLight && ohRuleServer.items.Outdoor_Lights.isOn)
-        {
-            ohRuleServer.items.Outdoor_Lights.turnOff();
-        }
+        // if (astro.isLight && ohRuleServer.items.Outdoor_Lights.isOn)
+        // {
+        //     ohRuleServer.items.Outdoor_Lights.turnOff();
+        // }
         
         winston.debug('startupRule:run - Starting job to turn off outdoor lights');
         
         every('15m', () =>
         {
-            winston.debug('startupRule:run - Checking outdoor lights isLight=%s;Outdoor_Lights=%s;Malibu_Lights=%s', astro.isLight(), ohRuleServer.items.Outdoor_Lights.isOn, ohRuleServer.items.Malibu_Lights.isOn);
+            winston.debug(`startupRule:run - Checking outdoor lights isLight=${astro.isLight()};Outdoor_Lights=${ohRuleServer.items.Outdoor_Lights.isOn};Malibu_Lights=${ohRuleServer.items.Malibu_Lights.isOn}`);
             if (astro.isLight())
             { 
                 if (ohRuleServer.items.Outdoor_Lights.isOn)

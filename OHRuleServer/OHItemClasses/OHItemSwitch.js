@@ -1,10 +1,11 @@
 'use strict';
 
 const util = require('util');
-const winston = require('winston');
 const EventEmitter = require('events');
 const OHItem = require('./OHItem');
 const OHItemCommandTarget = require('./OHItemCommandTarget');
+
+const logger = require('log4js').getLogger();
 
 class OHItemSwitch extends OHItemCommandTarget
 {
@@ -24,7 +25,7 @@ class OHItemSwitch extends OHItemCommandTarget
             case "boolean":
                 return (command == true)? "ON" : "OFF";
             default:
-                winston.warn("OHItemSwitch:coerceCommand [%s] Unknown type for command %s", this.name, command, this.meta, this.meta);
+                logger.warn(`OHItemSwitch:coerceCommand [${this.name}] Unknown type for command ${command}`);
                 return command;
         }
     }
@@ -49,7 +50,7 @@ class OHItemSwitch extends OHItemCommandTarget
                 break;
         }
         
-        winston.silly('OHItemSwitch:coerceState [%s] - Coercing state %s to %s', this.name, state, newState, this.meta);
+        logger.trace(`OHItemSwitch:coerceState [${this.name}] - Coercing state ${state} to ${newState}`);
         
         return newState;
     }

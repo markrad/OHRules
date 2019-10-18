@@ -1,9 +1,10 @@
 'use strict';
 
 const util = require('util');
-const winston = require('winston');
 const EventEmitter = require('events');
 const OHItem = require('./OHItem');
+
+const logger = require('log4js').getLogger();
 
 class OHItemString extends OHItem
 {
@@ -14,7 +15,7 @@ class OHItemString extends OHItem
 
     commandReceived(cmd)
     {
-        winston.debug('OHItemString:commandReceived [%s] - received %s', this.name, cmd); 
+        logger.debug(`OHItemString:commandReceived [${this.name}] - received ${cmd}`); 
         this.emit('commandReceived', cmd);
     }
  }

@@ -1,8 +1,6 @@
 # User
 config.json
 .gitignore~
-testrules
-rules
 
 # Logs
 logs
@@ -44,4 +42,3 @@ jspm_packages
 
 # Keep rules private
 rules/
-/.vscode/arduino.json

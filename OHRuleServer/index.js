@@ -1,7 +1,7 @@
-'use strict'
+'use strict';
 
 const util = require('util');
-const winston = require('winston');
+const log4js = require('log4js');
 const http = require('http');
 const moment = require('moment');
 const async = require('async');
@@ -10,14 +10,12 @@ const walk = require('walk');
 const fs = require('fs');
 const mqtt = require('mqtt');
 const _ = require('underscore');
-
-winston.remove(winston.transports.Console);
-winston.add(winston.transports.Console, { 'colorize': true, 'timestamp' : function() { return moment().format(); } });
-//winston.level = 'silly';
+const mqttAppender = require('./log4js-mqtt-appender');
+var ON_DEATH = require('death');
 
 // Constants
 const HOSTPATH = '/rest/items';
-const ITEMTYPES = [ 'Group', 'Switch', 'Dimmer', 'DateTime', 'Number', 'Contact', 'String' ];
+const ITEMTYPES = [ 'Group', 'Switch', 'Dimmer', 'DateTime', 'Number', 'Contact', 'String', 'Location' ];
 const UTILITIESDIR = path.resolve(__dirname, './OHUtilities');
 
 var ohClasses = {}
@@ -31,19 +29,67 @@ class OHRuleServer
 {
     constructor(config)
     {
-        winston.debug(util.inspect(config));
-        
         module.exports.Config = config;
         this._config = config;
         this._mqttClient = null;
         this._items = {};
         this._modules = [];
+        this._repeaters = [];
+        this._repeaterHandle = 0;
         
-        winston.level = this._config.winston.logLevel || 'debug';
-        winston.debug('OHRuleServer::constructor - Construction complete');
+        log4js.configure(
+            {
+                appenders: 
+                {
+                    out: 
+                    { 
+                        type: 'console' 
+                    },
+                    rolling: 
+                    { 
+                        type: 'dateFile', 
+                        filename: this._config.rollingLogger.logFile || 'logs/ohrules_temp.log',    // There really is no good default...
+                        pattern: '.yyyy-MM-dd', 
+                        alwaysIncludePattern: true, 
+                        daysToKeep: 7, 
+                        keepFileExt: true 
+                    },
+                    mqtt: 
+                    { 
+                        type: mqttAppender, 
+                        host: this._config.mqttLogger.host || 'mqtt://localhost:1883', 
+                        auth: this._config.mqttLogger.auth || null
+                    }
+                },
+                categories:
+                {
+                    default: 
+                    { 
+                        appenders: [ 'out', 'rolling', 'mqtt' ], 
+                        level: this._config.logging.logLevel || 'debug', 
+                        layout: { type: 'coloured' } 
+                    },
+                },
+            });
+
+        this._logger = log4js.getLogger();
+
+        ON_DEATH((signal, err) =>
+        {
+            this.logger.info('OHRuleServer::Death - encountered exiting');
+            mqttAppender.end();
+
+            if (this._mqttClient && this._mqttClient.connected)
+            {
+                this._mqttClient.end();
+            }
+            process.exit(0);
+        });
+
+        this.logger.debug('OHRuleServer::constructor - Construction complete');
     }
     
-    get logger() { return winston; }
+    get logger() { return this._logger; }
     get items() { return this._items; }
     get modules() { return this._modules; }
     get config() { return this._config; }
@@ -52,9 +98,9 @@ class OHRuleServer
     {
         var that = this;
 
-        winston.info('OHRuleServer::start - Start up in progress');
+        this.logger.info('OHRuleServer::start - Start up in progress');
         let ohUrl = 'http://' + this._config.OpenHab.OHServerAddress + ':' + this._config.OpenHab.OHServerPort + HOSTPATH;
-        winston.info("OHRuleServer::start - OpenHab web URL = %s", ohUrl);
+        this.logger.info(`OHRuleServer::start - OpenHab web URL = ${ohUrl}`);
         let ohRulesDir = this._config.rulesFolder || "../rulesFolder";
 
         if (!path.isAbsolute(ohRulesDir))
@@ -62,19 +108,19 @@ class OHRuleServer
             ohRulesDir = path.resolve(__dirname, '../', ohRulesDir);
         }
 
-        winston.info("OHRuleServer::start - Rules directory = %s", ohRulesDir);
+        this.logger.info(`OHRuleServer::start - Rules directory = ${ohRulesDir}`);
 
         this._mqttClient = mqtt.connect(this._config.mqtt.host, this._config.mqtt.auth);
 
         this._mqttClient.on('connect', () =>
         {
-            winston.info('MQTT connected');
+            this.logger.info('MQTT connected');
             this._mqttClient.subscribe(this._config.mqtt.subscribe);
         });
         
         this._mqttClient.on('error', (err) =>
         {
-            winston.error('Unable to connect to MQTT server: %s', err.message);
+            this.logger.error(`Unable to connect to MQTT server: ${err.message}`);
         });
 
         try
@@ -83,18 +129,18 @@ class OHRuleServer
             await this._getUtilities(UTILITIESDIR);
             let ruleCnt = await this._getRules(ohRulesDir);
 
-            winston.info('OHRuleServer::start - Found %s items and %s rules', itemCnt, ruleCnt);
+            this.logger.info(`OHRuleServer::start - Found ${itemCnt} items and ${ruleCnt} rules`);
     
             _.each(that._items, (item) =>
             {
                 item.on('commandSend', (command) =>
                 {
-                    winston.debug('<topic=%s;message=%s', util.format(that._config.mqtt.publish.command, item.name), command);
+                    this.logger.debug(`<topic=${util.format(that._config.mqtt.publish.command, item.name)};message=${command}`);
                     that._mqttClient.publish(util.format(that._config.mqtt.publish.command, item.name), command);
                 });
                 item.on('stateSet', (state) =>
                 {
-                    winston.debug('<topic=%s;message=%s', util.format(that._config.mqtt.publish.state, item.name), state);
+                    this.logger.debug(`<topic=${util.format(that._config.mqtt.publish.state, item.name)};message=${state}`);
                     that._mqttClient.publish(util.format(that._config.mqtt.publish.state, item.name), state);
                 });
             });
@@ -103,30 +149,48 @@ class OHRuleServer
 
             that._mqttClient.on('message', (topic, message) =>
             {
-                winston.debug('>topic=%s;message=%s', topic, message);
+                this.logger.debug(`>topic=${topic};message=${message}`);
                 
                 let itemName = that._getItemFromTopic(topic);
                 let messageType = that._getTypeFromTopic(topic);
                 
-                winston.silly('itemname = %s messageType = %s', itemName, messageType);
+                this.logger.trace(`itemname = ${itemName} messageType = ${messageType}`);
                 try
                 {
-                    if (messageType == 'command')
+                    if (itemName in that._items)
                     {
-                        that._items[itemName].commandReceived(message);
-                    }
-                    else if (messageType == 'state')
-                    {
-                        that._items[itemName].stateReceived(message);
+                        switch (messageType)
+                        {
+                            case 'command':
+                                that._items[itemName].commandReceived(message);
+                                break;
+                            case 'state':
+                                that._items[itemName].stateReceived(message);
+                                break;
+                            default:
+                                this.logger.error(`Unrecognized message type received - ${messageType}`);
+                        }
+                        // if (messageType == 'command')
+                        // {
+                        //     that._items[itemName].commandReceived(message);
+                        // }
+                        // else if (messageType == 'state')
+                        // {
+                        //     that._items[itemName].stateReceived(message);
+                        // }
+                        // else
+                        // {
+                        //     this.logger.error(`Unrecognized message type received - ${messageType}`);
+                        // }
                     }
                     else
                     {
-                        winston.error('Unrecognized message type received - ' + messageType);
+                        this.logger.warn(`item ${itemName} was not found at start up`);
                     }
                 }
                 catch (e)
                 {
-                    winston.error('Failed to send %s %s to %s: %s - %s', messageType, message, itemName, e.message, e.stack);
+                    this.logger.error(`Failed to send ${messageType} ${message} to ${itemName}: ${e.message} - ${e.stack}`);
                 }
             });
                     
@@ -140,17 +204,59 @@ class OHRuleServer
             //         setTimeout(() => 
             //         {
             //             changeSeen = false;
-            //             winston.debug('Will reload rules now');
+            //             this.logger.debug('Will reload rules now');
             //         }, 5 * 1000);
             //     }
             // });
+
+            setInterval(this._processRepeaters, 60 * 1000, this);
         }
         catch(err)
         {
-            winston.error("OHRuleServer::start - Initialization failed " + err.message);
+            this.logger.error(`OHRuleServer::start - Initialization failed ${err.message}`);
             process.exit(4);
         }
+    }
 
+    addRepeater(minutes, func, user)
+    {
+        let min = parseInt(minites);
+        let handle = this._repeaterHandle++;
+
+        if (typeof min == NaN)
+        {
+            this.logger.warn('OHRuleServer::this.addRepeater - Invalid argument minutes');
+            handle = -1;
+        }
+        else if (typeof func !== "function")
+        {
+            this.logger.warn('OHRuleServer::this.addRepeater - Invalid argument func');
+            handle = -1;
+        }
+        else
+        {
+            this._repeaters.push({ handle: handle, minutes: min, function: func, user: user });
+        }
+
+        return handle;
+    }
+
+    removeRepeater(handle)
+    {
+        this._repeaters = this._repeaters.filter(item => item.handler !== handle);
+    }
+
+    _processRepeaters(that)
+    {
+        var now = new Date();
+
+        that._repeaters.forEach((element) =>
+        {
+            if (now.getMinutes % element.minutes == 0)
+            {
+                element.function(element.user);
+            }
+        });
     }
 
     _getItems(ohUrl)
@@ -168,46 +274,46 @@ class OHRuleServer
                 {
                     try
                     {
-                        winston.silly(rawData);
+                        this.logger.trace(rawData);
                         var itemArray = JSON.parse(rawData);
                         
                         _.each(itemArray, function(element, index, list)
                         {
                             let parsedType = element.type.split(':')[0];
-                            winston.silly('OHRuleServer::start - Processing %s of type %s', element.name, ITEMTYPES[that._coerceType(parsedType)]);
+                            that.logger.trace(`OHRuleServer::start - Processing ${element.name} of type ${ITEMTYPES[that._coerceType(parsedType)]}`);
                             
                             let typeInd = ITEMTYPES.indexOf(parsedType);
                             
                             if (typeInd == -1)
                             {
-                                winston.warn('OHRuleServer::start - Dropped %s; Unknown item type %s', element.name, element.type);
+                                that.logger.warn(`OHRuleServer::start - Dropped ${element.name}; Unknown item type ${element.type}`);
                             }
                             else
                             {
-                                winston.silly('OHRuleServer::start - Constructing %s type %s from %s', element.name, ITEMTYPES[typeInd], JSON.stringify(element, null, 4));
+                                that.logger.trace(`OHRuleServer::start - Constructing ${element.name} type ${ITEMTYPES[typeInd]} from ${JSON.stringify(element, null, 4)}`);
                                 that._items[element.name] = new ohClasses[parsedType](element);
 
-                                if (winston.level == 'debug')
+                                if (that.logger.level.levelStr == 'DEBUG')
                                 {
                                     that._items[element.name].on("timerchange", (thisItem, reason, arg) => {
                                         switch (reason)
                                         {
                                             case "info":
-                                                winston.debug("OHRuleServer::ontimerchange [%s] set for %s", thisItem.name, arg.toString());
+                                                that.logger.debug(`OHRuleServer::ontimerchange [${thisItem.name}] set for ${arg.toString()}`);
                                             case "cleared":
-                                                winston.debug("OHRuleServer::ontimerchange [%s] cleared - %s", thisItem.name, arg);
+                                                that.logger.debug(`OHRuleServer::ontimerchange [${thisItem.name}] cleared - ${arg.toString()}`);
                                                 break;
                                             case "set":
-                                                winston.debug("OHRuleServer::ontimerchange [%s] set for %s", thisItem.name, arg.toString());
+                                                that.logger.debug(`OHRuleServer::ontimerchange [${thisItem.name}] set for ${arg.toString()}`);
                                                 break;
                                             case "triggered":
-                                                winston.debug("OHRuleServer::ontimerchange [%s] triggered - %s", thisItem.name, arg.toString());
+                                                that.logger.debug(`OHRuleServer::ontimerchange [${thisItem.name}] triggered - ${arg.toString()}`);
                                                 break;
                                             case "ignored":
-                                                winston.debug("OHRuleServer::ontimerchange [%s] ignored", thisItem.name);
+                                                that.logger.debug(`OHRuleServer::ontimerchange [${thisItem.name}] ignored`);
                                                 break;
                                             default:
-                                                winston.debug("OHRuleServer::ontimerchange [%s] unknown", thisItem.name);
+                                                that.logger.debug(`OHRuleServer::ontimerchange [${thisItem.name}] unknown`);
                                         }
                                     });
                                 }
@@ -218,10 +324,10 @@ class OHRuleServer
                         {
                             if (element.name in that._items)
                             {
-                                winston.silly('OHRuleServer::start - Processing %s', element.name);
+                                that.logger.trace(`OHRuleServer::start - Processing ${element.name}`);
                                 _.each(element.groupNames, function(groupName)
                                 {
-                                    winston.silly('OHRuleServer::start - Processing parent %s', groupName);
+                                    that.logger.trace(`OHRuleServer::start - Processing parent ${groupName}`);
                                     if (groupName in that._items)
                                     {
                                         that._items[element.name].addParent(that._items[groupName]);
@@ -229,28 +335,28 @@ class OHRuleServer
                                     }
                                     else
                                     {
-                                        winston.error('OHRuleServer::start - Group Item %s not found from %s', groupName, element.name);
+                                        that.logger.error(`OHRuleServer::start - Group Item ${groupName} not found from ${element.name}`);
                                     }
                                 });
                             }
                             else
                             {
-                                winston.error('OHRuleServer::start - Item %s not found', element.name);
+                                that.logger.error(`OHRuleServer::start - Item ${element.name} not found`);
                             }
                         });
                         
-                        if (winston.level == 'debug')
+                        if (that.logger.level.levelStr == 'DEBUG')
                         {
                             _.each(that._items, function(element)
                             {
-                                winston.silly('OHRuleServer::start - Checking %s', element.name);
+                                that.logger.trace(`OHRuleServer::start - Checking ${element.name}`);
                                 _.each(element.parents, function(parent) 
                                 {
-                                    winston.silly('OHRuleServer::start - \tFound %s', parent.name);
+                                    that.logger.trace(`OHRuleServer::start - \tFound ${parent.name}`);
                                     
                                     if (undefined == _.find(parent.children, function(item) { return item.name == element.name; }))
                                     {
-                                        winston.error('OHRuleServer::start - Item %s not linked to %s', item.name, element.name);
+                                        that.logger.error(`OHRuleServer::start - Item ${item.name} not linked to ${element.name}`);
                                     }
                                 });
                             });
@@ -258,9 +364,8 @@ class OHRuleServer
                     }
                     catch (e)
                     {
-                        winston.error('OHRuleServer::start - Unable to parse items from OpenHab - %s', e.message);
-                        winston.error(e.stack);
-                        winston.silly(util.inspect(itemArray));
+                        this.logger.error(`OHRuleServer::start - Unable to parse items from OpenHab - ${e.message} \n ${e.stack}`);
+                        this.logger.trace(util.inspect(itemArray));
                         reject(e);
                         return;
                     }
@@ -269,7 +374,7 @@ class OHRuleServer
                 });
                 response.on('error', (err) => 
                 { 
-                    winston.error("OHRuleServer::start - Error Occurred: " + err.message); 
+                    this.logger.error(`OHRuleServer::start - Error Occurred: ${err.message}`); 
                     reject(err); 
                 });
             });
@@ -295,7 +400,7 @@ class OHRuleServer
 
                         if (extname === '.js')
                         {
-                            winston.debug('OHRules:_getUtilities - Getting %s', current);
+                            that.logger.debug('OHRules:_getUtilities - Getting ${}', current);
                             let utilMod = require(current);
 
                             if (utilMod)
@@ -311,8 +416,8 @@ class OHRuleServer
                 
                 walker.on('errors', (root, nodeStatsArray, next) =>
                 {
-                    winston.warn('OHRules:_getUtilities - Error occured');
-                    winston.warn('1\t' + util.inspect(nodeStatsArray));
+                    that.logger.warn('OHRules:_getUtilities - Error occured');
+                    that.logger.warn('1\t' + util.inspect(nodeStatsArray));
                     
                     var error = new Error(nodeStatsArray[0].error);
                     reject(error);
@@ -320,13 +425,13 @@ class OHRuleServer
 
                 walker.on('end', function() 
                 {
-                    winston.debug('OHRules:_getUtilities - End of utilities');
-                    resolve(_.size(this._modules));
+                    that.logger.debug('OHRules:_getUtilities - End of utilities');
+                    resolve(_.size(that._modules));
                 });
                 
                 // fs.watch(ohRulesDir, (event, filename) => 
                 // {
-                //     winston.debug('OHRules:getRules - Rule change detected - event=%s;filename=%s', event, filename);
+                //     this.logger.debug('OHRules:getRules - Rule change detected - event=${};filename=${}', event, filename);
                 //     that.emit('ruleChange');
                 // });
             }
@@ -352,7 +457,7 @@ class OHRuleServer
                     {
                         var current = path.join(root, stat.name).replace(/\\/g, '/');		// Windows path delimiters do not work for require
                         var extname = path.extname(current);
-                        winston.debug('OHRules:_getRules - Getting %s', current);
+                        that.logger.debug('OHRules:_getRules - Getting ${}', current);
 
                         if (extname === '.js')
                         {
@@ -377,8 +482,8 @@ class OHRuleServer
                 
                 walker.on('errors', (root, nodeStatsArray, next) =>
                 {
-                    winston.warn('OHRules:_getRules - Error occured');
-                    winston.warn('1\t' + util.inspect(nodeStatsArray));
+                    that.logger.warn('OHRules:_getRules - Error occured');
+                    that.logger.warn('1\t' + util.inspect(nodeStatsArray));
                     
                     var error = new Error(nodeStatsArray[0].error);
                     reject(error);
@@ -386,13 +491,13 @@ class OHRuleServer
 
                 walker.on('end', function() 
                 {
-                    winston.debug('OHRules:_getRules - End of rules');
+                    that.logger.debug('OHRules:_getRules - End of rules');
                     resolve(_.size(that._modules));
                 });
                 
                 // fs.watch(ohRulesDir, (event, filename) => 
                 // {
-                //     winston.debug('OHRules:getRules - Rule change detected - event=%s;filename=%s', event, filename);
+                //     this.logger.debug('OHRules:getRules - Rule change detected - event=${};filename=${}', event, filename);
                 //     that.emit('ruleChange');
                 // });
             }
@@ -447,5 +552,5 @@ class OHRuleServer
 };
 
 module.exports.OHRuleServer = OHRuleServer;
-module.exports.OHRuleBase = require('./OHClasses/OhRuleBase');
+module.exports.OHRuleBase = require('./OHClasses/OHRuleBase');
 //module.exports.OHUtilities = require('./OHUtilities');

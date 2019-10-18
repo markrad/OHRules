@@ -23,8 +23,10 @@
   "homepage": "https://github.com/markrad/OHRules#readme",
   "dependencies": {
     "async": "^2.6.0",
+    "death": "^1.1.0",
     "fs": "0.0.1-security",
     "http": "0.0.0",
+    "log4js": "^5.2.1",
     "moment": "^2.22.1",
     "mqtt": "^2.17.0",
     "node-schedule": "^1.3.0",
@@ -32,7 +34,6 @@
     "schedule": "^0.1.0",
     "suncalc": "^1.8.0",
     "underscore": "^1.9.0",
-    "walk": "^2.3.13",
-    "winston": "^2.4.2"
+    "walk": "^2.3.13"
   }
 }

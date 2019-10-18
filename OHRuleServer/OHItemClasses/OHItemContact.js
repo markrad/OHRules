@@ -1,9 +1,10 @@
 'use strict';
 
 const util = require('util');
-const winston = require('winston');
 const EventEmitter = require('events');
 const OHItem = require('./OHItem');
+
+const logger = require('log4js').getLogger();
 
 class OHItemContact extends OHItem
 {
@@ -20,7 +21,7 @@ class OHItemContact extends OHItem
             : state == 'OPEN'
             ? false
             : NaN;
-        winston.silly('OHItemSwitch:coerceState [%s] - Coercing state %s to %s', this.name, state, newState, this.meta);
+        logger.trace('OHItemSwitch:coerceState [${}] - Coercing state ${} to ${}', this.name, state, newState, this.meta);
         
         return newState;
     }

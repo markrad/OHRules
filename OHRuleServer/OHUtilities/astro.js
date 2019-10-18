@@ -1,6 +1,5 @@
 "use strict";
 
-var winston = require('winston');
 var sunCalc = require('suncalc');
 var moment = require('moment');
 var schedule = require('node-schedule');
@@ -8,79 +7,87 @@ var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 const config = require('..').Config;
 
-function astro()
+const logger = require('log4js').getLogger();
+
+class Astro extends EventEmitter
 {
-	EventEmitter.call(this);
-
-    var that = this;
-    this.times = {};
-    this.events = [
-        "sunrise",
-        "sunriseEnd",
-        "goldenHourEnd",
-        "solarNoon",
-        "goldenHour",
-        "sunsetStart",
-        "sunset",
-        "dusk",
-        "nauticalDusk",
-        "night",
-        "nadir",
-        "nightEnd",
-        "nauticalDawn",
-        "dawn"
-    ];
-    
-    var lastEventSave = '';
-    var lastMoonPhaseSave = '';
-
-    var setupTimes = function(times1, times2)
+    constructor()
     {
-        winston.debug('in setupTimes');
+        super();
+        this.times = {};
+        this.events = [
+            "sunrise",
+            "sunriseEnd",
+            "goldenHourEnd",
+            "solarNoon",
+            "goldenHour",
+            "sunsetStart",
+            "sunset",
+            "dusk",
+            "nauticalDusk",
+            "night",
+            "nadir",
+            "nightEnd",
+            "nauticalDawn",
+            "dawn"
+        ];
+        this.lastEventSave = '';
+        this.lastMoonPhaseSave = '';
+        this.midnight();
+
+        schedule.scheduleJob({hour: 0, minute: 0, second: 0 }, () => this.midnight());
+    
+        this.updateMoon();
+        schedule.scheduleJob({ minute: 15 }, () => this.updateMoon());
+    }
+
+    setupTimes(times1, times2)
+    {
+        logger.debug('in setupTimes');
         var now = moment();
         var latest = moment().subtract(2, 'days');
         var latestIndex = -1;
 
-        for (var event of that.events)
+        for (var event of this.events)
         {
-            that.times[event] = (moment(times1[event]).isAfter(now))?
-                that.times[event] = moment(times1[event]) :
-                that.times[event] = moment(times2[event]);
+            this.times[event] = (moment(times1[event]).isAfter(now))?
+                this.times[event] = moment(times1[event]) :
+                this.times[event] = moment(times2[event]);
 
-            winston.debug('Firing event ' + event + ' at ' + that.times[event].toString());
-            setTimeout(function(myEvent)
+            logger.debug(`Firing event ${event} at ${this.times[event].toString()}`);
+            setTimeout((myEvent, that) =>
             {
-                winston.debug('Firing event ' + myEvent);
+                logger.debug(`Firing event ${myEvent}`);
                 that.emit('astroevent', myEvent);
-            }, that.times[event].diff(moment()), event);
+            }, this.times[event].diff(moment()), event, this);
             
-            winston.silly('astro - Compare %s to %s', that.times[event].toString(), latest.toString());
-            if (that.times[event].isAfter(latest))
+            logger.trace(`astro - Compare ${this.times[event].toString()} to ${latest.toString()}`);
+            if (this.times[event].isAfter(latest))
             {
-                winston.silly('astro - Replaceing previous time');
-                latest = that.times[event];
+                logger.trace('astro - Replaceing previous time');
+                latest = this.times[event];
                 latestIndex = event;
             }
         }
         
-        lastEventSave = latestIndex;
-        winston.debug('Last event was ' + lastEventSave);
+        this.lastEventSave = latestIndex;
+        logger.debug(`Last event was ${this.lastEventSave}`);
     }
 
-    var midnight = function()
+    midnight()
     {
-        setupTimes(
+        this.setupTimes(
             sunCalc.getTimes(moment(), config.location.latitude, config.location.longitude),
             sunCalc.getTimes(moment().add(1, 'days'), config.location.latitude, config.location.longitude));
     }
 
-    var updateMoon = function()
+    updateMoon()
     {
-        lastMoonPhaseSave = moonPhase();
-        that.emit("moonPhase", lastMoonPhaseSave);
+        this.lastMoonPhaseSave = this.moonPhase();
+        this.emit("moonPhase", this.lastMoonPhaseSave);
     }
 
-    var moonPhase = function()
+    moonPhase()
     {
         var d1 = moment().set({ 'h': 12, 'm': 0, 's': 0, 'ms': 0 });
         var d2 = moment().set({ 'h': 12, 'm': 0, 's': 0, 'ms': 0 }).add(1, 'd');
@@ -88,7 +95,7 @@ function astro()
         var moon2 = sunCalc.getMoonIllumination(d2);
         var phase = 'Not Set';
 
-        winston.debug("d1=" + d1.format() + ";d2=" + d2.format() + ";moon1.phase=" + moon1.phase + ";moon2.phase=" + moon2.phase);
+        logger.debug(`d1=${d1.format()};d2=${d2.format()};moon1.phase=${moon1.phase};moon2.phase=${moon2.phase}`);
 
         if (moon1.phase > moon2.phase)
         {
@@ -127,16 +134,16 @@ function astro()
             phase = 'Fuck Knows'
         }
 
-        winston.debug('astro - Moon Phase = %s', phase);
+        logger.debug(`astro - Moon Phase = ${phase}`);
         return phase;
     }
     
-    this.lastEvent = function()
+    lastEvent()
     {
-        return lastEventSave;
+        return this.lastEventSave;
     }
 
-    this.getEvent = function(eventName)
+    getEvent(eventName)
     {
         if (this.times.hasOwnProperty(eventName))
             return this.times[eventName].format();
@@ -144,41 +151,33 @@ function astro()
             return "0";
     }
     
-    this.lastMoonPhase = function()
+    lastMoonPhase()
     {
-        return lastMoonPhaseSave;
+        return this.lastMoonPhaseSave;
     }
 
-    this.isDark = function()
+    isDark()
     {
         var temp = moment();
         var result;
 
-        if (that.times[config.astro.daystart].isBefore(that.times[config.astro.dayend]))
+        if (this.times[config.astro.daystart].isBefore(this.times[config.astro.dayend]))
         {
-            result = (temp.isBetween(that.times[config.astro.daystart], that.times[config.astro.dayend]))? false : true;
+            result = (temp.isBetween(this.times[config.astro.daystart], this.times[config.astro.dayend]))? false : true;
         }
         else
         {
-            result = (temp.isBetween(that.times[config.astro.dayend], that.times[config.astro.daystart]))? true : false;
+            result = (temp.isBetween(this.times[config.astro.dayend], this.times[config.astro.daystart]))? true : false;
         }
 
         return result;
     }
 
-    this.isLight = function()
+    isLight()
     {
         return this.isDark() == false;
     }
 
-    midnight();
-
-    schedule.scheduleJob({hour: 0, minute: 0, second: 0 }, () => midnight());
-
-    updateMoon();
-    schedule.scheduleJob({ minute: 15 }, () => updateMoon());
 }
 
-util.inherits(astro, EventEmitter);
-
-module.exports = new astro();
+module.exports = new Astro();
