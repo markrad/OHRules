@@ -400,7 +400,7 @@ class OHRuleServer
 
                         if (extname === '.js')
                         {
-                            that.logger.debug('OHRules:_getUtilities - Getting ${}', current);
+                            that.logger.debug(`OHRuleServer:_getUtilities - Getting ${current}`);
                             let utilMod = require(current);
 
                             if (utilMod)
@@ -416,7 +416,7 @@ class OHRuleServer
                 
                 walker.on('errors', (root, nodeStatsArray, next) =>
                 {
-                    that.logger.warn('OHRules:_getUtilities - Error occured');
+                    that.logger.warn('OHRuleServer:_getUtilities - Error occured');
                     that.logger.warn('1\t' + util.inspect(nodeStatsArray));
                     
                     var error = new Error(nodeStatsArray[0].error);
@@ -425,7 +425,7 @@ class OHRuleServer
 
                 walker.on('end', function() 
                 {
-                    that.logger.debug('OHRules:_getUtilities - End of utilities');
+                    that.logger.debug('OHRuleServer:_getUtilities - End of utilities');
                     resolve(_.size(that._modules));
                 });
                 
@@ -457,7 +457,7 @@ class OHRuleServer
                     {
                         var current = path.join(root, stat.name).replace(/\\/g, '/');		// Windows path delimiters do not work for require
                         var extname = path.extname(current);
-                        that.logger.debug('OHRules:_getRules - Getting ${}', current);
+                        that.logger.debug(`OHRuleServer:_getRules - Getting ${current}`);
 
                         if (extname === '.js')
                         {
@@ -482,7 +482,7 @@ class OHRuleServer
                 
                 walker.on('errors', (root, nodeStatsArray, next) =>
                 {
-                    that.logger.warn('OHRules:_getRules - Error occured');
+                    that.logger.warn('OHRuleServer:_getRules - Error occured');
                     that.logger.warn('1\t' + util.inspect(nodeStatsArray));
                     
                     var error = new Error(nodeStatsArray[0].error);
@@ -491,7 +491,7 @@ class OHRuleServer
 
                 walker.on('end', function() 
                 {
-                    that.logger.debug('OHRules:_getRules - End of rules');
+                    that.logger.debug('OHRuleServer:_getRules - End of rules');
                     resolve(_.size(that._modules));
                 });
                 
