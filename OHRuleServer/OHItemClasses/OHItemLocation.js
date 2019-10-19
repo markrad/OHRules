@@ -21,7 +21,7 @@ class OHItemLocation extends OHItem
     {
         try
         {
-            return state.split(',').slice(0, 2).join(',');
+            return state.toString().split(',').slice(0, 2).join(',');
         }
         catch (exp)
         {
