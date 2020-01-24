@@ -134,7 +134,7 @@ class OHRuleServer
                 }
             };
 
-            let mqttconnect = (handle, port) =>
+            this._mqttServer = await ((handle, port) =>
             {
                 return new Promise((resolve, reject) =>
                 {
@@ -142,25 +142,24 @@ class OHRuleServer
 
                     server.listen(port, () =>
                     {
+                        this.logger.info("OHRuleServer::start - Internal MQTT server started")
                         resolve(server);
                     })
                 });
-            }
-
-            this._mqttServer = await mqttconnect(aedes.handle, this._config.mqttLocalServer.port || 1883);
+            })(aedes.handle, this._config.mqttLocalServer.port || 1883);
         }
 
         this._mqttClient = mqtt.connect(this._config.mqtt.host, this._config.mqtt.auth);
 
         this._mqttClient.on('connect', () =>
         {
-            this.logger.info('MQTT connected');
+            this.logger.info('OHRuleServer::start - MQTT connected');
             this._mqttClient.subscribe(this._config.mqtt.subscribe);
         });
         
         this._mqttClient.on('error', (err) =>
         {
-            this.logger.error(`Unable to connect to MQTT server: ${err.message}`);
+            this.logger.error(`OHRuleServer::start - Unable to connect to MQTT server: ${err.message}`);
         });
 
         try
@@ -210,18 +209,6 @@ class OHRuleServer
                             default:
                                 this.logger.error(`Unrecognized message type received - ${messageType}`);
                         }
-                        // if (messageType == 'command')
-                        // {
-                        //     that._items[itemName].commandReceived(message);
-                        // }
-                        // else if (messageType == 'state')
-                        // {
-                        //     that._items[itemName].stateReceived(message);
-                        // }
-                        // else
-                        // {
-                        //     this.logger.error(`Unrecognized message type received - ${messageType}`);
-                        // }
                     }
                     else
                     {
@@ -260,7 +247,7 @@ class OHRuleServer
 
     addRepeater(minutes, func, user)
     {
-        let min = parseInt(minites);
+        let min = parseInt(minutes);
         let handle = this._repeaterHandle++;
 
         if (typeof min == NaN)
