@@ -84,6 +84,21 @@ class OHRuleServer
             {
                 this._mqttClient.end();
             }
+
+            if (this._mqttServer != null)
+            {
+                await ((server) => 
+                {
+                    return new Promise((resolve, reject) =>
+                    {
+                        server.close(() =>
+                        {
+                            resolve();
+                        });
+                    });
+                })(this._mqttServer);
+            }
+
             process.exit(0);
         });
 
