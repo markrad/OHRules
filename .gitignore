@@ -42,3 +42,7 @@ jspm_packages
 
 # Keep rules private
 rules/
+
+# Keep etc private
+etc/
+

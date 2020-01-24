@@ -3,8 +3,8 @@
 const util = require('util');
 const log4js = require('log4js');
 const http = require('http');
-const moment = require('moment');
-const async = require('async');
+// const moment = require('moment');
+// const async = require('async');
 const path = require('path');
 const walk = require('walk');
 const fs = require('fs');
@@ -36,6 +36,7 @@ class OHRuleServer
         this._modules = [];
         this._repeaters = [];
         this._repeaterHandle = 0;
+        this._mqttServer = null;
         
         log4js.configure(
             {
@@ -109,6 +110,45 @@ class OHRuleServer
         }
 
         this.logger.info(`OHRuleServer::start - Rules directory = ${ohRulesDir}`);
+
+        if (this._config.mqttLocalServer.use == true)
+        {
+            // Host the server here
+            let net = require('net');
+            let aedes = require('aedes')();
+            const identities = require('./etc/pwd.json');
+
+            aedes.authenticate = (_client, username, password, callback) =>
+            {
+                let thisPassword = new TextDecoder().decode(password);
+        
+                if (username.toLowerCase() in identities && identities[username.toLowerCase()] === thisPassword)
+                {
+                    callback(null, true);
+                }
+                else
+                {
+                    let err = new Error("Authentication Error");
+                    err.returnCode = 4;
+                    callback(err, null);
+                }
+            };
+
+            let mqttconnect = (handle, port) =>
+            {
+                return new Promise((resolve, reject) =>
+                {
+                    let server = net.createServer(handle);
+
+                    server.listen(port, () =>
+                    {
+                        resolve(server);
+                    })
+                });
+            }
+
+            this._mqttServer = await mqttconnect(aedes.handle, this._config.mqttLocalServer.port || 1883);
+        }
 
         this._mqttClient = mqtt.connect(this._config.mqtt.host, this._config.mqtt.auth);
 
@@ -400,7 +440,7 @@ class OHRuleServer
 
                         if (extname === '.js')
                         {
-                            that.logger.debug('OHRules:_getUtilities - Getting ${}', current);
+                            that.logger.debug(`OHRuleServer:_getUtilities - Getting ${current}`);
                             let utilMod = require(current);
 
                             if (utilMod)
@@ -416,7 +456,7 @@ class OHRuleServer
                 
                 walker.on('errors', (root, nodeStatsArray, next) =>
                 {
-                    that.logger.warn('OHRules:_getUtilities - Error occured');
+                    that.logger.warn('OHRuleServer:_getUtilities - Error occured');
                     that.logger.warn('1\t' + util.inspect(nodeStatsArray));
                     
                     var error = new Error(nodeStatsArray[0].error);
@@ -425,7 +465,7 @@ class OHRuleServer
 
                 walker.on('end', function() 
                 {
-                    that.logger.debug('OHRules:_getUtilities - End of utilities');
+                    that.logger.debug('OHRuleServer:_getUtilities - End of utilities');
                     resolve(_.size(that._modules));
                 });
                 
@@ -457,7 +497,7 @@ class OHRuleServer
                     {
                         var current = path.join(root, stat.name).replace(/\\/g, '/');		// Windows path delimiters do not work for require
                         var extname = path.extname(current);
-                        that.logger.debug('OHRules:_getRules - Getting ${}', current);
+                        that.logger.debug(`OHRuleServer:_getRules - Getting ${current}`);
 
                         if (extname === '.js')
                         {
@@ -482,7 +522,7 @@ class OHRuleServer
                 
                 walker.on('errors', (root, nodeStatsArray, next) =>
                 {
-                    that.logger.warn('OHRules:_getRules - Error occured');
+                    that.logger.warn('OHRuleServer:_getRules - Error occured');
                     that.logger.warn('1\t' + util.inspect(nodeStatsArray));
                     
                     var error = new Error(nodeStatsArray[0].error);
@@ -491,7 +531,7 @@ class OHRuleServer
 
                 walker.on('end', function() 
                 {
-                    that.logger.debug('OHRules:_getRules - End of rules');
+                    that.logger.debug('OHRuleServer:_getRules - End of rules');
                     resolve(_.size(that._modules));
                 });
                 
