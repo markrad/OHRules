@@ -12,6 +12,7 @@ const mqtt = require('mqtt');
 const _ = require('underscore');
 const mqttAppender = require('./log4js-mqtt-appender');
 var ON_DEATH = require('death');
+const { StringDecoder } = require('string_decoder');
 
 // Constants
 const HOSTPATH = '/rest/items';
@@ -132,10 +133,11 @@ class OHRuleServer
             let net = require('net');
             let aedes = require('aedes')();
             const identities = require('./etc/pwd.json');
+            const decoder = new StringDecoder('utf8');
 
             aedes.authenticate = (_client, username, password, callback) =>
             {
-                let thisPassword = new TextDecoder().decode(password);
+                let thisPassword = decoder.write(password);
         
                 if (username.toLowerCase() in identities && identities[username.toLowerCase()] === thisPassword)
                 {
@@ -149,19 +151,57 @@ class OHRuleServer
                 }
             };
 
-            this._mqttServer = await ((handle, port) =>
+            aedes.on('client', (client) => 
             {
-                return new Promise((resolve, reject) =>
+                if (client.id.startsWith("mqttjs_") == false)
                 {
-                    let server = net.createServer(handle);
+                    this.logger.debug(`OHRuleServer::MQTTServer - client ${client.id} connected`);
+                }
+            });
 
+            aedes.on('clientDisconnect', (client) =>
+            {
+                if (client.id.startsWith("mqttjs_") == false)
+                {
+                    this.logger.debug(`OHRuleServer::MQTTServer - client ${client.id} disconnected`);
+                }
+            });
+
+            // Wait for OpenHab2 to connect to my MQTT broker
+            var serverPromise = ((aedes) => 
+            {
+                return new Promise((resolve, _reject) =>
+                {
+                    var onClientHandler = (client) =>
+                    {
+                        if (client.id == "openhab2")
+                        {
+                            aedes.removeListener('client', onClientHandler);
+                            resolve();
+                        }
+                    }
+                    aedes.on('client', onClientHandler);
+                });
+            })(aedes);
+
+            let server = net.createServer(aedes.handle);
+            
+            this._mqttServer = await ((server, port) =>
+            {
+                return new Promise((resolve, _reject) =>
+                {
                     server.listen(port, () =>
                     {
                         this.logger.info("OHRuleServer::start - Internal MQTT server started")
-                        resolve(server);
+
+                        serverPromise.then(() =>
+                        {
+                            this.logger.info("OHRuleServer::start - OpenHab2 connected");
+                            resolve(server);
+                        });
                     })
                 });
-            })(aedes.handle, this._config.mqttLocalServer.port || 1883);
+            })(server, this._config.mqttLocalServer.port || 1883);
         }
 
         this._mqttClient = mqtt.connect(this._config.mqtt.host, this._config.mqtt.auth);
@@ -256,6 +296,7 @@ class OHRuleServer
         catch(err)
         {
             this.logger.error(`OHRuleServer::start - Initialization failed ${err.message}`);
+            this.logger.error(err.stack);
             process.exit(4);
         }
     }
