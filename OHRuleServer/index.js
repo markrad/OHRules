@@ -13,6 +13,7 @@ const _ = require('underscore');
 const mqttAppender = require('./log4js-mqtt-appender');
 var ON_DEATH = require('death');
 const { StringDecoder } = require('string_decoder');
+const EventEmitter = require('events');
 
 // Constants
 const HOSTPATH = '/rest/items';
@@ -26,10 +27,11 @@ _.each(ITEMTYPES, function(element, index, list)
     ohClasses[element] = require('./OHItemClasses/OHItem' + element);
 });
 
-class OHRuleServer
+class OHRuleServer extends EventEmitter
 {
     constructor(config)
     {
+        super();
         module.exports.Config = config;
         this._config = config;
         this._mqttClient = null;
@@ -156,6 +158,7 @@ class OHRuleServer
                 if (client.id.startsWith("mqttjs_") == false)
                 {
                     this.logger.debug(`OHRuleServer::MQTTServer - client ${client.id} connected`);
+                    this.emit('mqttclientadd', client);
                 }
             });
 
@@ -164,6 +167,7 @@ class OHRuleServer
                 if (client.id.startsWith("mqttjs_") == false)
                 {
                     this.logger.debug(`OHRuleServer::MQTTServer - client ${client.id} disconnected`);
+                    this.emit('mqttclientremove', client);
                 }
             });
 
@@ -223,7 +227,7 @@ class OHRuleServer
             await this._getUtilities(UTILITIESDIR);
             let ruleCnt = await this._getRules(ohRulesDir);
 
-            this.logger.info(`OHRuleServer::start - Found ${itemCnt} items and ${ruleCnt} rules`);
+            this.logger.info(`OHRuleServer::start - Found ${itemCnt} item${(itemCnt == 1)? '' : 's'} and ${ruleCnt} rule${(ruleCnt == 1)? '' : 's'}`);
     
             _.each(that._items, (item) =>
             {
