@@ -15,10 +15,8 @@ class Astro extends EventEmitter
     {
         super();
         this.times = {};
+        this.timesArray = [];
         this.events = [
-            "sunrise",
-            "sunriseEnd",
-            "goldenHourEnd",
             "solarNoon",
             "goldenHour",
             "sunsetStart",
@@ -29,9 +27,12 @@ class Astro extends EventEmitter
             "nadir",
             "nightEnd",
             "nauticalDawn",
-            "dawn"
+            "dawn",
+            "sunrise",
+            "sunriseEnd",
+            "goldenHourEnd",
         ];
-        this.lastEventSave = '';
+        this.lastEventSave = null;
         this.lastMoonPhaseSave = '';
         this.midnight();
 
@@ -40,7 +41,7 @@ class Astro extends EventEmitter
         this.updateMoon();
         schedule.scheduleJob({ minute: 15 }, () => this.updateMoon());
     }
-
+/*
     setupTimes(times1, times2)
     {
         logger.debug('in setupTimes');
@@ -64,7 +65,7 @@ class Astro extends EventEmitter
             logger.trace(`astro - Compare ${this.times[event].toString()} to ${latest.toString()}`);
             if (this.times[event].isAfter(latest))
             {
-                logger.trace('astro - Replaceing previous time');
+                logger.trace('astro - Replacing previous time');
                 latest = this.times[event];
                 latestIndex = event;
             }
@@ -73,14 +74,77 @@ class Astro extends EventEmitter
         this.lastEventSave = latestIndex;
         logger.debug(`Last event was ${this.lastEventSave}`);
     }
-
+*/
     midnight()
+    {
+        var t1 = sunCalc.getTimes(moment().subtract(1, 'days'), config.location.latitude, config.location.longitude);
+        var t2 = sunCalc.getTimes(moment(), config.location.latitude, config.location.longitude);
+        var t3 = sunCalc.getTimes(moment().add(1, 'days'), config.location.latitude, config.location.longitude);
+
+        Object.keys(t1).forEach((item, value, ar) =>
+        {
+            this.timesArray.push({ "event": item, "moment": moment(t1[item]) })
+        });
+
+        Object.keys(t2).forEach((item) =>
+        {
+            this.timesArray.push({ "event": item, "moment": moment(t2[item]) })
+        });
+
+        Object.keys(t3).forEach((item) =>
+        {
+            this.timesArray.push({ "event": item, "moment": moment(t3[item]) })
+        });
+
+        this.timesArray.sort((l, r) => 
+        {
+            return (l.moment.isAfter(r.moment))
+            ? 1
+            : (l.moment.isBefore(r.moment))
+            ? -1
+            : 0;
+        });
+
+        this.timesArray.forEach((item) => console.log(`Event=${item.event}\t\tMoment=${item.moment}`));
+
+        var now = moment();
+        var index;
+
+        index = this.timesArray.findIndex((element) => element.moment.isAfter(now));
+
+        console.log('');
+        console.log(`Event=${this.timesArray[index - 1].event}\t\tMoment=${this.timesArray[index - 1].moment}`);
+        console.log(`Event=${this.timesArray[index].event}\t\tMoment=${this.timesArray[index].moment}`);
+
+        this.lastEventSave = this.timesArray[index - 1];
+        //this.timesArray.splice(0, index);
+        index = this.timesArray.findIndex((element) => element.moment.date() == now.date());
+        this.timesArray.splice(0, index);
+        index = this.timesArray.findIndex((element) => element.moment.date() != now.date());
+        this.timesArray.splice(index);
+
+        this.timesArray.forEach((item) =>
+        {
+            if (item.moment.isAfter(now))
+            {
+                logger.debug(`Firing event ${item.event} at ${item.moment}`);
+                setTimeout((myEvent, that) =>
+                {
+                    logger.debug(`Firing event ${myEvent}`);
+                    that.emit('astroevent', myEvent);
+                    that.lastEventSave = myEvent;
+                }, item.moment.diff(moment()), item, this);
+            }
+        });
+    }
+/*
+    midnightx()
     {
         this.setupTimes(
             sunCalc.getTimes(moment(), config.location.latitude, config.location.longitude),
             sunCalc.getTimes(moment().add(1, 'days'), config.location.latitude, config.location.longitude));
     }
-
+*/
     updateMoon()
     {
         this.lastMoonPhaseSave = this.moonPhase();
@@ -137,18 +201,22 @@ class Astro extends EventEmitter
         logger.debug(`astro - Moon Phase = ${phase}`);
         return phase;
     }
-    
+
     lastEvent()
     {
-        return this.lastEventSave;
+        return this.lastEventSave.event;
+    }
+
+    lastEventTime()
+    {
+        return this.lastEventSave.moment;
     }
 
     getEvent(eventName)
     {
-        if (this.times.hasOwnProperty(eventName))
-            return this.times[eventName].format();
-        else
-            return "0";
+        var entry = this.timesArray.find((element) => element.event == eventName);
+
+        return (!entry)? null : entry.moment;
     }
     
     lastMoonPhase()
@@ -158,6 +226,23 @@ class Astro extends EventEmitter
 
     isDark()
     {
+        var index = this.events.findIndex((element) => element == this.lastEvent());
+        var result = true;
+
+        for (var i = index; i >= 0; i--)
+        {
+            if (this.events[i] == config.astro.daystart)
+            {
+                return false;
+            }
+            else if (this.events[i] == config.astro.dayend)
+            {
+                return true;
+            }
+        }
+
+        return false;
+/*
         var temp = moment();
         var result;
 
@@ -171,6 +256,7 @@ class Astro extends EventEmitter
         }
 
         return result;
+*/        
     }
 
     isLight()

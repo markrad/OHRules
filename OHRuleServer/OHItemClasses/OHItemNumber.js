@@ -13,6 +13,11 @@ class OHItemNumber extends OHItem
         super(jsonObj);
     }
 
+    coerceCommand(command)
+    {
+        return (typeof command == 'string')? command : command.toString();
+    }
+
     coerceState(state)
     {
         let newState = parseFloat(state);

@@ -88,21 +88,28 @@ class OHRuleServer extends EventEmitter
                 this._mqttClient.end();
             }
 
-            if (this._mqttServer != null)
+            var shutdown = (server) =>
             {
-                await ((server) => 
+                return new Promise((resolve, reject) =>
                 {
-                    return new Promise((resolve, reject) =>
+                    if (server == null)
+                    {
+                        resolve();
+                    }
+                    else
                     {
                         server.close(() =>
                         {
                             resolve();
-                        });
-                    });
-                })(this._mqttServer);
-            }
+                        })
+                    }
+                });
+            };
 
-            process.exit(0);
+            shutdown(this._mqttServer).then(() => 
+            {
+                process.exit(0);
+            });
         });
 
         this.logger.debug('OHRuleServer::constructor - Construction complete');
@@ -139,18 +146,20 @@ class OHRuleServer extends EventEmitter
 
             aedes.authenticate = (_client, username, password, callback) =>
             {
-                let thisPassword = decoder.write(password);
-        
-                if (username.toLowerCase() in identities && identities[username.toLowerCase()] === thisPassword)
+                if (username != undefined || password != undefined)
                 {
-                    callback(null, true);
+                    let thisPassword = decoder.write(password);
+            
+                    if (username.toLowerCase() in identities && identities[username.toLowerCase()] === thisPassword)
+                    {
+                        callback(null, true);
+                        return;
+                    }
                 }
-                else
-                {
-                    let err = new Error("Authentication Error");
-                    err.returnCode = 4;
-                    callback(err, null);
-                }
+
+                let err = new Error("Authentication Error");
+                err.returnCode = 4;
+                callback(err, null);
             };
 
             aedes.on('client', (client) => 
@@ -233,13 +242,27 @@ class OHRuleServer extends EventEmitter
             {
                 item.on('commandSend', (command) =>
                 {
-                    this.logger.debug(`<topic=${util.format(that._config.mqtt.publish.command, item.name)};message=${command}`);
-                    that._mqttClient.publish(util.format(that._config.mqtt.publish.command, item.name), command);
+                    try
+                    {
+                        this.logger.debug(`<topic=${util.format(that._config.mqtt.publish.command, item.name)};message=${command}`);
+                        that._mqttClient.publish(util.format(that._config.mqtt.publish.command, item.name), command);
+                    }
+                    catch(e)
+                    {
+                        this.logger.error(`OHRuleServer::start - commandSend publish failed - ${item.name}`)
+                    }
                 });
                 item.on('stateSet', (state) =>
                 {
-                    this.logger.debug(`<topic=${util.format(that._config.mqtt.publish.state, item.name)};message=${state}`);
-                    that._mqttClient.publish(util.format(that._config.mqtt.publish.state, item.name), state);
+                    try
+                    {
+                        this.logger.debug(`<topic=${util.format(that._config.mqtt.publish.state, item.name)};message=${state}`);
+                        that._mqttClient.publish(util.format(that._config.mqtt.publish.state, item.name), state);
+                    }
+                    catch(e)
+                    {
+                        this.logger.error(`OHRuleServer::start - stateSet publish failed - ${item.name}`)
+                    }
                 });
             });
 
@@ -295,7 +318,7 @@ class OHRuleServer extends EventEmitter
             //     }
             // });
 
-            setInterval(this._processRepeaters, 60 * 1000, this);
+            //setInterval(this._processRepeaters, 60 * 1000, this);
         }
         catch(err)
         {
@@ -362,7 +385,16 @@ class OHRuleServer extends EventEmitter
                     try
                     {
                         this.logger.trace(rawData);
-                        var itemArray = JSON.parse(rawData);
+                        var itemArray;
+
+                        try
+                        {
+                            itemArray = JSON.parse(rawData);
+                        }
+                        catch (e)
+                        {
+                            this.logger.error(`OHRuleServer::_getItems: Invalid JSON received\n${rawData}`)
+                        }
                         
                         _.each(itemArray, function(element, index, list)
                         {
@@ -471,10 +503,63 @@ class OHRuleServer extends EventEmitter
     _getUtilities(ohUtilityDir, callback)
     {
         var that = this;
-        module.exports.OHUtility = [];
+        module.exports.OHUtility = {};
 
         return new Promise( (resolve, reject) => 
         {
+            try
+            {
+                fs.readdir(ohUtilityDir, (err, files) =>
+                {
+                    if (err)
+                    { 
+                        reject(err);
+                    }
+                    else
+                    {
+                        for (var i = 0; i < files.length; i++)
+                        {
+                            let stats = fs.statSync(path.join(ohUtilityDir, files[i]));
+
+                            if (stats.isDirectory && files[i] == 'node_modules');
+                            else if (stats.isDirectory())
+                            {
+                                if (fs.existsSync(path.join(ohUtilityDir, files[i], 'index.js')))
+                                {
+                                    let dir = path.join(ohUtilityDir, files[i]).replace(/\\/g, '/');
+                                    that.logger.debug(`OHRuleServer:_getUtilities - Getting ${dir}`);
+                                    let utilMod = require(dir);
+        
+                                    if (utilMod)
+                                    {
+                                        module.exports.OHUtility[files[i]] = utilMod;
+                                    }
+                                }
+                            }
+                            else if (stats.isFile())
+                            {
+                                let current = path.join(ohUtilityDir, files[i]).replace(/\\/g, '/');
+                                that.logger.debug(`OHRuleServer:_getUtilities - Getting ${current}`);
+                                let utilMod = require(current);
+    
+                                if (utilMod)
+                                {
+                                    let fileroot = path.basename(current).substr(0, path.basename(current).length - 3);
+                                    module.exports.OHUtility[fileroot] = utilMod;
+                                }
+                            }
+                        }
+                    }
+                });
+
+                resolve();
+            }
+            catch (e)
+            {
+                reject(e);
+            }
+        });
+/*
             try
             {
                 var walker  = walk.walk(ohUtilityDir, { followLinks: false, filters: [ 'node_modules' ] });
@@ -493,6 +578,29 @@ class OHRuleServer extends EventEmitter
                             if (utilMod)
                             {
                                 let fileroot = path.basename(current).substr(0, path.basename(current).length - 3);
+                                module.exports.OHUtility[fileroot] = utilMod;
+                            }
+                        }
+                    }
+
+                    next();
+                });
+
+                walker.on('directory', (root, stat, next) =>
+                {
+                    if (stat.type === 'directory')
+                    {
+                        let dir = path.join(root, stat.name).replace(/\\/g, '/');
+                        let current = path.join(dir, 'index.js').replace(/\\/g, '/');
+                        
+                        if (fs.existsSync(current))
+                        {
+                            that.logger.debug(`OHRuleServer:_getUtilities - Getting ${current}`);
+                            let utilMod = require(dir);
+
+                            if (utilMod)
+                            {
+                                let fileroot = stat.name;
                                 module.exports.OHUtility[fileroot] = utilMod;
                             }
                         }
@@ -527,6 +635,7 @@ class OHRuleServer extends EventEmitter
                 reject(e);
             }
         });
+        */
     }
 
     _getRules(ohRulesDir, callback)
@@ -636,7 +745,7 @@ class OHRuleServer extends EventEmitter
         return topic.substr(end + 1);
     }
     
-};
+}
 
 module.exports.OHRuleServer = OHRuleServer;
 module.exports.OHRuleBase = require('./OHClasses/OHRuleBase');
