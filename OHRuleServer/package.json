@@ -23,7 +23,7 @@
   "homepage": "https://github.com/markrad/OHRules#readme",
   "dependencies": {
     "aedes": "^0.40.1",
-    "async": "^2.6.0",
+    "async": "^2.6.4",
     "death": "^1.1.0",
     "fs": "0.0.1-security",
     "http": "0.0.0",
